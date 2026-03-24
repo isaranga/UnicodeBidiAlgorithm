@@ -248,32 +248,6 @@ BIDI_MIRROR_TABLE = {
 # SECTION: Helpers
 # ============================================================
 
-def get_bidi_types(text: str) -> list[str]:
-    """Return list of Unicode Bidi_Class values for each character in text."""
-    result = []
-    for ch in text:
-        btype = unicodedata.bidirectional(ch)
-        if not btype:
-            btype = 'L'  # default for unassigned
-        result.append(btype)
-    return result
-
-
-def get_level_runs(embedding_levels: list[int]) -> list[tuple[int, int]]:
-    """Return list of (start, end) spans where all positions have the same embedding level.
-    Excludes BN positions (handled by caller). Actually returns maximal runs of same level."""
-    if not embedding_levels:
-        return []
-    runs = []
-    start = 0
-    for i in range(1, len(embedding_levels)):
-        if embedding_levels[i] != embedding_levels[start]:
-            runs.append((start, i))
-            start = i
-    runs.append((start, len(embedding_levels)))
-    return runs
-
-
 def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int) -> list[dict]:
     """
     Compute isolating run sequences per UAX#9 BD13.
@@ -295,12 +269,6 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
 
     def last_non_bn_type(run_indices):
         for idx in reversed(run_indices):
-            if chars[idx].character_type != 'BN':
-                return chars[idx].character_type
-        return None
-
-    def first_non_bn_type(run_indices):
-        for idx in run_indices:
             if chars[idx].character_type != 'BN':
                 return chars[idx].character_type
         return None
