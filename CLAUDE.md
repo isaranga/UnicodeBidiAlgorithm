@@ -61,7 +61,7 @@ Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_B
 
 ### Verbose mode
 
-Every phase and rule function accepts `verbose=True`. When enabled, `print_horizontal_table` prints a before/after table for each rule application, showing character index, character, type transition, and embedding level.
+Every phase and rule function accepts `verbose=True`. When enabled, `print_table` prints a before/after table for each rule application, showing character index, character, type transition, and embedding level.
 
 ### Return value
 
