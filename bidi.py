@@ -397,12 +397,8 @@ def print_table(rule_name: str, indices: list[int], chars_list: list[str],
         else:
             char_cells.append(f"U+{ord(ch):04X}")
     before_cells = list(types_before)
-    after_cells = []
-    for b, a in zip(types_before, types_after):
-        if b != a:
-            after_cells.append(f"{b}->{a}")
-        else:
-            after_cells.append(a)
+    after_cells = list(types_after)
+    after_changed = [b != a for b, a in zip(types_before, types_after)]
     level_cells = [str(lv) for lv in levels]
 
     # Compute column widths
@@ -422,7 +418,16 @@ def print_table(rule_name: str, indices: list[int], chars_list: list[str],
     print(fmt_row("Char", char_cells))
     if changed:
         print(fmt_row("Before", before_cells))
-        print(fmt_row("After", after_cells))
+        BOLD_YELLOW = "\033[1;33m"
+        RESET = "\033[0m"
+        after_row = "After    |"
+        for j, cell in enumerate(after_cells):
+            padded = f"{cell:^{col_widths[j]}}"
+            if after_changed[j]:
+                after_row += f" {BOLD_YELLOW}{padded}{RESET} |"
+            else:
+                after_row += f" {padded} |"
+        print(after_row)
     print(fmt_row("Level", level_cells))
     print()
 
