@@ -366,9 +366,9 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
     return sequences
 
 
-def print_table(rule_name: str, indices: list[int], chars_list: list[str],
+def print_table(rule_name: str, chars: list[CharacterInfo],
                 types_before: list[str], types_after: list[str],
-                levels: list[int], irs_label: str = '') -> None:
+                irs_label: str = '') -> None:
     """Print a table showing rule effects on character positions."""
     header = f"--- Rule {rule_name}"
     if irs_label:
@@ -384,14 +384,15 @@ def print_table(rule_name: str, indices: list[int], chars_list: list[str],
 
     print(header)
 
-    n = len(indices)
+    n = len(chars)
     if n == 0:
         return
 
     # Build cell values for each column
-    idx_cells = [str(idx) for idx in indices]
+    idx_cells = [str(ci.index) for ci in chars]
     char_cells = []
-    for ch in chars_list:
+    for ci in chars:
+        ch = ci.character
         if ch.isprintable() and ord(ch) < 128:
             char_cells.append(ch)
         else:
@@ -399,7 +400,7 @@ def print_table(rule_name: str, indices: list[int], chars_list: list[str],
     before_cells = list(types_before)
     after_cells = list(types_after)
     after_changed = [b != a for b, a in zip(types_before, types_after)]
-    level_cells = [str(lv) for lv in levels]
+    level_cells = [str(ci.embedding_level) for ci in chars]
 
     # Compute column widths
     col_widths = []
@@ -460,12 +461,9 @@ def determine_paragraph_embedding_level(chars: list[CharacterInfo], verbose: boo
                 break
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         types = [ci.character_type for ci in chars]
-        levels = [ci.embedding_level for ci in chars]
         print(f"=== Phase P: Paragraph Embedding Level = {paragraph_level} ===")
-        print_table("P2/P3", indices, char_list, types, types, levels)
+        print_table("P2/P3", chars, types, types)
 
     return paragraph_level
 
@@ -641,12 +639,9 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             ci.character_type = 'BN'
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         types = [ci.character_type for ci in chars]
-        levels = [ci.embedding_level for ci in chars]
         print("=== Phase X: Explicit Embedding Levels ===")
-        print_table("X1-X9", indices, char_list, types, types, levels)
+        print_table("X1-X9", chars, types, types)
 
 
 # ============================================================
@@ -758,50 +753,49 @@ def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
         # Extract types for this run
         types = [chars[i].character_type for i in run_indices]
 
+        run_chars = [chars[i] for i in run_indices]
+
         # Apply W1
         before = list(types)
         types = _apply_w1(types, run_indices, sos)
         if verbose:
-            indices = [chars[i].index for i in run_indices]
-            char_list = [chars[i].character for i in run_indices]
-            levels = [chars[i].embedding_level for i in run_indices]
-            print_table("W1", indices, char_list, before, types, levels, irs_label)
+            print_table("W1", run_chars, before, types, irs_label)
 
         # Apply W2
         before = list(types)
         types = _apply_w2(types, run_indices, sos)
         if verbose:
-            print_table("W2", indices, char_list, before, types, levels, irs_label)
+            print_table("W2", run_chars, before, types, irs_label)
 
         # Apply W3
         before = list(types)
         types = _apply_w3(types)
         if verbose:
-            print_table("W3", indices, char_list, before, types, levels, irs_label)
+            print_table("W3", run_chars, before, types, irs_label)
 
         # Apply W4
         before = list(types)
         types = _apply_w4(types)
         if verbose:
-            print_table("W4", indices, char_list, before, types, levels, irs_label)
+            print_table("W4", run_chars, before, types, irs_label)
 
         # Apply W5
         before = list(types)
         types = _apply_w5(types)
         if verbose:
-            print_table("W5", indices, char_list, before, types, levels, irs_label)
+            print_table("W5", run_chars, before, types, irs_label)
 
         # Apply W6
         before = list(types)
         types = _apply_w6(types)
         if verbose:
-            print_table("W6", indices, char_list, before, types, levels, irs_label)
+            print_table("W6", run_chars, before, types, irs_label)
 
         # Apply W7
         before = list(types)
         types = _apply_w7(types, run_indices, sos)
         if verbose:
-            print_table("W7", indices, char_list, before, types, levels, irs_label)
+            print_table("W7", run_chars, before, types, irs_label)
 
         # Write back
         for j, i in enumerate(run_indices):
@@ -978,16 +972,15 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         level = seq['embedding_level']
         irs_label = f"IRS level={level}"
 
+        run_chars = [chars[i] for i in run_indices]
+
         # N0: bracket pairs (modifies chars directly)
         if verbose:
             before_n0 = [chars[i].character_type for i in run_indices]
         _apply_n0(chars, run_indices, sos, level)
         if verbose:
             after_n0 = [chars[i].character_type for i in run_indices]
-            indices = [chars[i].index for i in run_indices]
-            char_list = [chars[i].character for i in run_indices]
-            levels_list = [chars[i].embedding_level for i in run_indices]
-            print_table("N0", indices, char_list, before_n0, after_n0, levels_list, irs_label)
+            print_table("N0", run_chars, before_n0, after_n0, irs_label)
 
         # N1/N2
         types = [chars[i].character_type for i in run_indices]
@@ -995,10 +988,7 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         types = _apply_n1_n2(types, run_indices, sos, eos, level)
 
         if verbose:
-            indices = [chars[i].index for i in run_indices]
-            char_list = [chars[i].character for i in run_indices]
-            levels_list = [chars[i].embedding_level for i in run_indices]
-            print_table("N1/N2", indices, char_list, before_n12, types, levels_list, irs_label)
+            print_table("N1/N2", run_chars, before_n12, types, irs_label)
 
         for j, i in enumerate(run_indices):
             chars[i].character_type = types[j]
@@ -1023,13 +1013,10 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
                 ci.embedding_level += 2
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         after_i1 = [ci.embedding_level for ci in chars]
-        print_table("I1", indices, char_list,
+        print_table("I1", chars,
                                [str(l) for l in before_i1],
-                               [str(l) for l in after_i1],
-                               after_i1)
+                               [str(l) for l in after_i1])
 
     # I2: odd levels
     before_i2 = [ci.embedding_level for ci in chars]
@@ -1042,13 +1029,10 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
                 ci.embedding_level += 1
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         after_i2 = [ci.embedding_level for ci in chars]
-        print_table("I2", indices, char_list,
+        print_table("I2", chars,
                                [str(l) for l in before_i2],
-                               [str(l) for l in after_i2],
-                               after_i2)
+                               [str(l) for l in after_i2])
 
 
 # ============================================================
@@ -1151,33 +1135,24 @@ def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
     _apply_l1(chars, paragraph_embedding_level)
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         types = [ci.character_type for ci in chars]
-        levels = [ci.embedding_level for ci in chars]
         print("=== After L1: Level Reset ===")
-        print_table("L1", indices, char_list, types, types, levels)
+        print_table("L1", chars, types, types)
 
     _apply_l2(chars)
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         types = [ci.character_type for ci in chars]
-        levels = [ci.embedding_level for ci in chars]
         print("=== After L2: Visual Reorder ===")
-        print_table("L2", indices, char_list, types, types, levels)
+        print_table("L2", chars, types, types)
 
     _apply_l3(chars)
     _apply_l4(chars)
 
     if verbose:
-        indices = [ci.index for ci in chars]
-        char_list = [ci.character for ci in chars]
         types = [ci.character_type for ci in chars]
-        levels = [ci.embedding_level for ci in chars]
         print("=== After L4: Mirror ===")
-        print_table("L4", indices, char_list, types, types, levels)
+        print_table("L4", chars, types, types)
 
     final_levels = [ci.embedding_level for ci in chars]
     reordered_text = ''.join(ci.character for ci in chars)
