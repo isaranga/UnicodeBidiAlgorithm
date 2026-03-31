@@ -1221,10 +1221,11 @@ def apply_bidi_algorithm(text: str, verbose: bool = False) -> tuple[list[int], s
 if __name__ == '__main__':
     examples = [
         ("Hello, World!", "Pure LTR"),
-        ("\u05e9\u05dc\u05d5\u05dd", "Pure RTL (Hebrew: shalom)"),
-        ("\u05e9\u05dc\u05d5\u05dd 123 Hi", "Mixed RTL+digits+LTR"),
-        ("\u202AHello \u05e9\u05dc\u05d5\u05dd\u202C", "LRE/PDF explicit embedding"),
-        ('He said \u201c\u05e9\u05dc\u05d5\u05dd\u201d', "Neutral brackets + N0"),
+        ("שלום", "Pure RTL (Hebrew: shalom)"),
+        ("שלום 123 Hi", "Mixed RTL+digits+LTR"),
+        ("\u202AHello שלום\u202C", "LRE/PDF explicit embedding"),
+        ("הוא אמר: ״\u2066Car is מכונית in Hebrew\u2069״.\u200f", "LRI/FSI isolate"),
+        ('He said “שלום”', "Neutral brackets + N0"),
     ]
 
     for text, description in examples:
