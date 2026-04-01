@@ -890,19 +890,23 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
         chars[open_idx].character_type = direction
         chars[close_idx].character_type = direction
 
-        # Set NSMs after open bracket
+        # Set NSMs after open bracket (skip over BN/X9 characters)
         for pos in range(open_pos + 1, len(run_indices)):
             idx = run_indices[pos]
             if chars[idx].original_type == 'NSM':
                 chars[idx].character_type = direction
+            elif chars[idx].original_type in X9_REMOVE_TYPES:
+                continue
             else:
                 break
 
-        # Set NSMs after close bracket
+        # Set NSMs after close bracket (skip over BN/X9 characters)
         for pos in range(close_pos + 1, len(run_indices)):
             idx = run_indices[pos]
             if chars[idx].original_type == 'NSM':
                 chars[idx].character_type = direction
+            elif chars[idx].original_type in X9_REMOVE_TYPES:
+                continue
             else:
                 break
 
