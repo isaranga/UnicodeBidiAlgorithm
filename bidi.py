@@ -1164,9 +1164,17 @@ def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
 # SECTION: Entry point
 # ============================================================
 
-def apply_bidi_algorithm(text: str, verbose: bool = False) -> tuple[list[int], str]:
+def apply_bidi_algorithm(
+    text: str,
+    verbose: bool = False,
+    paragraph_embedding_level: int | None = None,
+) -> tuple[list[int], str]:
     """
     Apply the Unicode Bidirectional Algorithm (UAX #9) to text.
+
+    Args:
+        paragraph_embedding_level: If provided (0 or 1), use this as the paragraph
+            embedding level instead of running the P2/P3 auto-detection rules.
 
     Returns:
         (embedding_levels, reordered_text)
@@ -1191,7 +1199,10 @@ def apply_bidi_algorithm(text: str, verbose: bool = False) -> tuple[list[int], s
         ))
 
     # Phase P: Determine paragraph embedding level
-    paragraph_level = determine_paragraph_embedding_level(chars, verbose=verbose)
+    if paragraph_embedding_level is not None:
+        paragraph_level = paragraph_embedding_level
+    else:
+        paragraph_level = determine_paragraph_embedding_level(chars, verbose=verbose)
 
     # Phase X: Explicit embedding levels
     apply_explicit_levels(chars, paragraph_level, verbose=verbose)

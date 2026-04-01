@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+"""
+Conformance tests for bidi.py against BidiCharacterTest.txt (Unicode 15.1).
+
+Usage:
+    python run_bidi_tests.py [TEST_FILE] [--max-failures N] [--lines START-END] [--fail-fast]
+
+Defaults:
+    TEST_FILE       BidiCharacterTest.txt
+    --max-failures  20
+"""
+
+import argparse
+import sys
+import unicodedata
+from dataclasses import dataclass
+
+from bidi import apply_bidi_algorithm
+
+_YLW = "\033[33m"   # yellow
+_RST = "\033[0m"    # reset
+
+
+def _highlight_diff(a: list, b: list) -> tuple[str, str]:
+    """Return string representations of a and b with differing positions in yellow."""
+    def fmt(seq, other):
+        parts = []
+        for i, val in enumerate(seq):
+            s = str(val)
+            if i >= len(other) or val != other[i]:
+                parts.append(f"{_YLW}{s}{_RST}")
+            else:
+                parts.append(s)
+        return "[" + ", ".join(parts) + "]"
+    return fmt(a, b), fmt(b, a)
+
+# Bidi types removed by rule X9. Characters with these original types are
+# excluded from the expected levels and visual order fields in the test file.
+X9_TYPES = frozenset({"RLE", "LRE", "RLO", "LRO", "PDF", "BN"})
+
+
+@dataclass
+class TestCase:
+    line_number: int
+    text: str             # original input string
+    direction: int        # 0=force LTR, 1=force RTL, 2=auto
+    para_level: int       # expected resolved paragraph embedding level
+    # Field 3: one entry per character; None means the char was X9-removed.
+    expected_levels: list[int | None]
+    # Field 4: visual reordering indices into the original string (X9 chars omitted).
+    expected_order: list[int]
+
+
+def parse_test_file(path: str, line_range: tuple[int, int] | None):
+    """Yield TestCase objects from the test file, optionally filtered to a line range."""
+    start, end = line_range if line_range else (1, 10**9)
+    with open(path, encoding="utf-8") as f:
+        for lineno, raw in enumerate(f, 1):
+            if lineno < start:
+                continue
+            if lineno > end:
+                break
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            fields = [field.strip() for field in line.split(";")]
+            if len(fields) != 5:
+                continue
+
+            text = "".join(chr(int(cp, 16)) for cp in fields[0].split())
+            direction = int(fields[1])
+            para_level = int(fields[2])
+            expected_levels = [
+                None if token == "x" else int(token)
+                for token in fields[3].split()
+            ]
+            expected_order = [int(token) for token in fields[4].split()]
+
+            yield TestCase(lineno, text, direction, para_level, expected_levels, expected_order)
+
+
+def run_test(tc: TestCase) -> tuple[bool, str]:
+    """
+    Run a single test case. Returns (passed, failure_description).
+    failure_description is empty when passed=True.
+    """
+    forced_level = None if tc.direction == 2 else tc.direction
+    logical_levels, reordered_text = apply_bidi_algorithm(
+        tc.text, paragraph_embedding_level=forced_level
+    )
+
+    # --- Compare embedding levels ---
+    actual_levels = [
+        level
+        for ch, level in zip(tc.text, logical_levels)
+        if unicodedata.bidirectional(ch) not in X9_TYPES
+    ]
+    expected_levels_filtered = [lvl for lvl in tc.expected_levels if lvl is not None]
+
+    levels_ok = actual_levels == expected_levels_filtered
+
+    # --- Compare visual order ---
+    actual_visual_chars = [
+        ch for ch in reordered_text
+        if unicodedata.bidirectional(ch) not in X9_TYPES
+    ]
+    expected_visual_chars = [tc.text[i] for i in tc.expected_order]
+
+    order_ok = actual_visual_chars == expected_visual_chars
+
+    if levels_ok and order_ok:
+        return True, ""
+
+    codepoints = " ".join(f"{ord(ch):04X}" for ch in tc.text)
+    lines = [f"FAIL line {tc.line_number} | dir={tc.direction} | {codepoints}"]
+    if not levels_ok:
+        exp_str, act_str = _highlight_diff(expected_levels_filtered, actual_levels)
+        lines.append(f"  levels   expected: {exp_str}")
+        lines.append(f"           actual:   {act_str}")
+    if not order_ok:
+        exp_cps = [f"{ord(c):04X}" for c in expected_visual_chars]
+        act_cps = [f"{ord(c):04X}" for c in actual_visual_chars]
+        exp_str, act_str = _highlight_diff(exp_cps, act_cps)
+        lines.append(f"  order    expected indices: {tc.expected_order}")
+        lines.append(f"           expected chars:   {exp_str}")
+        lines.append(f"           actual chars:     {act_str}")
+    return False, "\n".join(lines)
+
+
+def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, fail_fast: bool):
+    passed = 0
+    failed = 0
+    failures = []
+    progress_interval = 5000
+    processed = 0
+
+    for tc in parse_test_file(path, line_range):
+        ok, description = run_test(tc)
+        processed += 1
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+            if len(failures) < max_failures:
+                failures.append(description)
+            if fail_fast:
+                print(description)
+                print(f"\nStopped after first failure. ({passed} passed before this)")
+                sys.exit(1)
+
+        if processed % progress_interval == 0:
+            print(f"  ... {processed} tests run (passed={passed}, failed={failed})", flush=True)
+
+    total = passed + failed
+    print(f"\nPassed: {passed}  Failed: {failed}  Total: {total}")
+
+    if failures:
+        print()
+        for desc in failures:
+            print(desc)
+        if failed > len(failures):
+            print(f"  ... and {failed - len(failures)} more failures (increase --max-failures to see them)")
+
+    sys.exit(0 if failed == 0 else 1)
+
+
+def parse_line_range(value: str) -> tuple[int, int]:
+    parts = value.split("-")
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError("--lines must be in START-END format, e.g. 44-82")
+    try:
+        start, end = int(parts[0]), int(parts[1])
+    except ValueError:
+        raise argparse.ArgumentTypeError("--lines START and END must be integers")
+    if start > end:
+        raise argparse.ArgumentTypeError("--lines START must be <= END")
+    return start, end
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Run BidiCharacterTest.txt conformance tests against bidi.py"
+    )
+    parser.add_argument(
+        "test_file",
+        nargs="?",
+        default="BidiCharacterTest.txt",
+        help="Path to BidiCharacterTest.txt (default: BidiCharacterTest.txt)",
+    )
+    parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Maximum number of failures to print (default: 20)",
+    )
+    parser.add_argument(
+        "--lines",
+        type=parse_line_range,
+        metavar="START-END",
+        help="Only run test cases in this line range, e.g. --lines 44-82",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop immediately after the first failure",
+    )
+    args = parser.parse_args()
+
+    run_tests(args.test_file, args.max_failures, args.lines, args.fail_fast)
+
+
+if __name__ == "__main__":
+    main()
