@@ -524,6 +524,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
         level, override, is_isolate = stack[-1]
 
         if t == 'RLE':  # X2
+            ci.embedding_level = level
             new_level = _least_greater_odd(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
                 stack.append((new_level, 'neutral', False))
@@ -532,6 +533,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                     overflow_embedding_count += 1
 
         elif t == 'LRE':  # X3
+            ci.embedding_level = level
             new_level = _least_greater_even(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
                 stack.append((new_level, 'neutral', False))
@@ -540,6 +542,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                     overflow_embedding_count += 1
 
         elif t == 'RLO':  # X4
+            ci.embedding_level = level
             new_level = _least_greater_odd(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
                 stack.append((new_level, 'right-to-left', False))
@@ -548,6 +551,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                     overflow_embedding_count += 1
 
         elif t == 'LRO':  # X5
+            ci.embedding_level = level
             new_level = _least_greater_even(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
                 stack.append((new_level, 'left-to-right', False))
@@ -616,6 +620,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 ci.character_type = 'R'
 
         elif t == 'PDF':  # X7
+            ci.embedding_level = level
             if overflow_isolate_count > 0:
                 pass  # X7: ignore
             elif overflow_embedding_count > 0:
