@@ -1147,6 +1147,9 @@ def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         print_table("L2", chars, types, types)
 
     _apply_l3(chars)
+
+    reordered_text = ''.join(ci.character for ci in chars)
+
     _apply_l4(chars)
 
     if verbose:
@@ -1155,7 +1158,6 @@ def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         print_table("L4", chars, types, types)
 
     final_levels = [ci.embedding_level for ci in chars]
-    reordered_text = ''.join(ci.character for ci in chars)
 
     return final_levels, reordered_text
 
