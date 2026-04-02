@@ -1228,7 +1228,10 @@ def apply_bidi_algorithm(
     apply_implicit_rules(chars, verbose=verbose)
 
     # Phase L: Reordering
-    # Save embedding levels before L phase (these are the "logical" levels)
+    # L1 resets S/B and trailing whitespace to the paragraph level; those
+    # reset levels are part of the "resolved" levels that conformance tests
+    # check.  Apply L1 now, capture levels, then run L2-L4 for reordering.
+    _apply_l1(chars, paragraph_level)
     logical_levels = [ci.embedding_level for ci in chars]
 
     final_levels, reordered_text = apply_reorder_rules(chars, paragraph_level, verbose=verbose)
