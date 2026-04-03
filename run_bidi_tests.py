@@ -12,6 +12,7 @@ Defaults:
 
 import argparse
 import sys
+import traceback
 import unicodedata
 from dataclasses import dataclass
 
@@ -85,9 +86,18 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     failure_description is empty when passed=True.
     """
     forced_level = None if tc.direction == 2 else tc.direction
-    logical_levels, reordered_text, actual_para_level = apply_bidi_algorithm(
-        tc.text, paragraph_embedding_level=forced_level
-    )
+    try:
+        logical_levels, reordered_text, actual_para_level = apply_bidi_algorithm(
+            tc.text, paragraph_embedding_level=forced_level
+        )
+    except Exception:
+        codepoints = " ".join(f"{ord(ch):04X}" for ch in tc.text)
+        tb = traceback.format_exc().rstrip()
+        return False, (
+            f"FAIL line {tc.line_number} | dir={tc.direction} | {codepoints}\n"
+            f"  exception:\n"
+            + "\n".join(f"    {line}" for line in tb.splitlines())
+        )
 
     # --- Sanity-check output lengths before any filtering ---
     if len(logical_levels) != len(tc.text):
