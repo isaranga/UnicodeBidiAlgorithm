@@ -90,6 +90,12 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     )
 
     # --- Compare embedding levels ---
+    if len(logical_levels) != len(tc.text):
+        return False, (
+            f"FAIL line {tc.line_number} | dir={tc.direction} | "
+            f"logical_levels length {len(logical_levels)} != text length {len(tc.text)}"
+        )
+
     actual_levels = [
         level
         for ch, level in zip(tc.text, logical_levels)
