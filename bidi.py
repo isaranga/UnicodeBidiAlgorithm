@@ -620,13 +620,16 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 ci.character_type = 'R'
 
         elif t == 'PDF':  # X7
-            ci.embedding_level = level
             if overflow_isolate_count > 0:
                 pass  # X7: ignore
             elif overflow_embedding_count > 0:
                 overflow_embedding_count -= 1
             elif not stack[-1][2] and len(stack) >= 2:
                 stack.pop()
+            # Assign the level of the new stack top (after any pop), so that
+            # PDF's BN does not create a spurious high-level run that would
+            # split the isolating run sequence around it.
+            ci.embedding_level = stack[-1][0]
 
         elif t == 'B':  # X8: paragraph separator resets
             ci.embedding_level = paragraph_embedding_level
@@ -1084,14 +1087,30 @@ def _apply_l2(chars: list[CharacterInfo]) -> None:
     """
     L2: From highest to lowest odd level, reverse each maximal contiguous
     sequence of chars at that level or higher.
+
+    BN characters (removed by rule X9) are transparent to this algorithm:
+    they are excluded from run detection so they do not split runs of
+    visible characters at higher embedding levels.  After reordering the
+    visible characters, BN characters are left in their original relative
+    positions within the chars list (they will be filtered out by the
+    caller when building the final visual string).
     """
     if not chars:
         return
 
-    levels = [ci.embedding_level for ci in chars]
+    # Identify which positions hold visible (non-X9) characters.
+    non_bn_indices = [i for i, ci in enumerate(chars)
+                      if ci.original_type not in X9_REMOVE_TYPES]
+    if not non_bn_indices:
+        return
+
+    # Work only on the visible characters.
+    non_bn = [chars[i] for i in non_bn_indices]
+    levels = [ci.embedding_level for ci in non_bn]
+
     max_level = max(levels)
 
-    # Find lowest odd level
+    # Find lowest odd level among visible characters only.
     odd_levels = [l for l in levels if l % 2 == 1]
     if not odd_levels:
         return  # no RTL content
@@ -1100,19 +1119,24 @@ def _apply_l2(chars: list[CharacterInfo]) -> None:
     for level in range(max_level, min_odd - 1, -1):
         # Find maximal runs where level >= current level
         i = 0
-        n = len(chars)
+        n = len(non_bn)
         while i < n:
             if levels[i] >= level:
                 j = i + 1
                 while j < n and levels[j] >= level:
                     j += 1
-                # Reverse chars[i:j] in-place
-                chars[i:j] = chars[i:j][::-1]
+                # Reverse non_bn[i:j] in-place
+                non_bn[i:j] = non_bn[i:j][::-1]
                 # Also update our local levels copy
                 levels[i:j] = levels[i:j][::-1]
                 i = j
             else:
                 i += 1
+
+    # Write the reordered visible characters back into the slots they
+    # originally occupied.  BN characters remain at their own positions.
+    for k, idx in enumerate(non_bn_indices):
+        chars[idx] = non_bn[k]
 
 
 def _apply_l3(chars: list[CharacterInfo]) -> None:
