@@ -141,7 +141,7 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
 def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, fail_fast: bool):
     passed = 0
     failed = 0
-    failures = []
+    printed_failures = 0
     progress_interval = 5000
     processed = 0
 
@@ -152,10 +152,10 @@ def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, 
             passed += 1
         else:
             failed += 1
-            if len(failures) < max_failures:
-                failures.append(description)
+            if printed_failures < max_failures:
+                print(description, flush=True)
+                printed_failures += 1
             if fail_fast:
-                print(description)
                 print(f"\nStopped after first failure. ({passed} passed before this)")
                 sys.exit(1)
 
@@ -165,12 +165,8 @@ def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, 
     total = passed + failed
     print(f"\nPassed: {passed}  Failed: {failed}  Total: {total}")
 
-    if failures:
-        print()
-        for desc in failures:
-            print(desc)
-        if failed > len(failures):
-            print(f"  ... and {failed - len(failures)} more failures (increase --max-failures to see them)")
+    if failed > printed_failures:
+        print(f"  ... and {failed - printed_failures} more failures (increase --max-failures to see them)")
 
     sys.exit(0 if failed == 0 else 1)
 
