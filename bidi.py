@@ -831,9 +831,13 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
             bracket_stack.append((close_cp, pos))
 
         elif cp in CLOSE_BRACKET_TO_OPEN:
-            # Search bracket_stack for matching open
+            # Search bracket_stack for matching open.
+            # UAX #9 requires treating canonical equivalents as equal (e.g.
+            # U+2329/U+3008 and U+232A/U+3009 are canonical equivalents).
+            cp_nfd = unicodedata.normalize('NFD', chr(cp))
             for si in range(len(bracket_stack) - 1, -1, -1):
-                if bracket_stack[si][0] == cp:
+                expected_nfd = unicodedata.normalize('NFD', chr(bracket_stack[si][0]))
+                if expected_nfd == cp_nfd:
                     # Found match
                     open_pos = bracket_stack[si][1]
                     pairs.append((open_pos, pos))
