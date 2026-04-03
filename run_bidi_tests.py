@@ -163,7 +163,7 @@ def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, 
             print(f"  ... {processed} tests run (passed={passed}, failed={failed})", flush=True)
 
     total = passed + failed
-    print(f"\nPassed: {passed}  Failed: {failed}  Total: {total} ({passed/total:.1%} passed)")
+    print(f"\nPassed: {passed}  Failed: {failed}  Total: {total}")
 
     if failures:
         print()
