@@ -19,6 +19,14 @@ This project is **educational**. The primary goal is to make the algorithm easy 
 
 When modifying code, keep this priority order: **clarity > correctness > performance**.
 
+## Conformance testing
+
+`BidiCharacterTest.txt` (Unicode 15.1) and `run_bidi_tests.py` are verification tools used to check the correctness of `bidi.py` against the official Unicode test suite. They are **not** part of the educational project — readers do not need to read, run, or even know about them in order to understand the Unicode Bidirectional Algorithm.
+
+```bash
+python run_bidi_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
+```
+
 ## Commands
 
 **Run the built-in demo** (five example strings with verbose output):
