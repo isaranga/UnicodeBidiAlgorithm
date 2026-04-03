@@ -89,11 +89,16 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
         tc.text, paragraph_embedding_level=forced_level
     )
 
-    # --- Compare embedding levels ---
+    # --- Sanity-check output lengths before any filtering ---
     if len(logical_levels) != len(tc.text):
         return False, (
             f"FAIL line {tc.line_number} | dir={tc.direction} | "
             f"logical_levels length {len(logical_levels)} != text length {len(tc.text)}"
+        )
+    if len(reordered_text) != len(tc.text):
+        return False, (
+            f"FAIL line {tc.line_number} | dir={tc.direction} | "
+            f"reordered_text length {len(reordered_text)} != text length {len(tc.text)}"
         )
 
     actual_levels = [
