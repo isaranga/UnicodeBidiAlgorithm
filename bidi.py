@@ -1179,7 +1179,7 @@ def apply_bidi_algorithm(
     text: str,
     verbose: bool = False,
     paragraph_embedding_level: int | None = None,
-) -> tuple[list[int], str]:
+) -> tuple[list[int], str, int]:
     """
     Apply the Unicode Bidirectional Algorithm (UAX #9) to text.
 
@@ -1188,12 +1188,13 @@ def apply_bidi_algorithm(
             embedding level instead of running the P2/P3 auto-detection rules.
 
     Returns:
-        (embedding_levels, reordered_text)
+        (embedding_levels, reordered_text, paragraph_level)
         embedding_levels: list of final embedding levels (one per character, in visual order)
         reordered_text: visually reordered string
+        paragraph_level: resolved paragraph embedding level (0=LTR, 1=RTL)
     """
     if not text:
-        return [], ''
+        return [], '', 0
 
     # Initialize CharacterInfo for each character
     chars = []
@@ -1236,7 +1237,7 @@ def apply_bidi_algorithm(
 
     final_levels, reordered_text = apply_reorder_rules(chars, paragraph_level, verbose=verbose)
 
-    return logical_levels, reordered_text
+    return logical_levels, reordered_text, paragraph_level
 
 
 # ============================================================
@@ -1258,7 +1259,8 @@ if __name__ == '__main__':
         print(f"Example: {description}")
         print(f"Input: {repr(text)}")
         print()
-        levels, reordered = apply_bidi_algorithm(text, verbose=True)
+        levels, reordered, _para_level = apply_bidi_algorithm(text, verbose=True)
+        print(f"Paragraph level:  {_para_level}")
         print(f"Embedding levels: {levels}")
         print(f"Reordered text:   {repr(reordered)}")
         print()

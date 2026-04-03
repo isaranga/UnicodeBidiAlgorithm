@@ -85,7 +85,7 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     failure_description is empty when passed=True.
     """
     forced_level = None if tc.direction == 2 else tc.direction
-    logical_levels, reordered_text = apply_bidi_algorithm(
+    logical_levels, reordered_text, actual_para_level = apply_bidi_algorithm(
         tc.text, paragraph_embedding_level=forced_level
     )
 
@@ -99,6 +99,9 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
 
     levels_ok = actual_levels == expected_levels_filtered
 
+    # --- Compare paragraph level (only meaningful for auto-detect) ---
+    para_level_ok = actual_para_level == tc.para_level
+
     # --- Compare visual order ---
     actual_visual_chars = [
         ch for ch in reordered_text
@@ -108,11 +111,13 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
 
     order_ok = actual_visual_chars == expected_visual_chars
 
-    if levels_ok and order_ok:
+    if levels_ok and order_ok and para_level_ok:
         return True, ""
 
     codepoints = " ".join(f"{ord(ch):04X}" for ch in tc.text)
     lines = [f"FAIL line {tc.line_number} | dir={tc.direction} | {codepoints}"]
+    if not para_level_ok:
+        lines.append(f"  para_level expected: {tc.para_level}  actual: {actual_para_level}")
     if not levels_ok:
         exp_str, act_str = _highlight_diff(expected_levels_filtered, actual_levels)
         lines.append(f"  levels   expected: {exp_str}")
