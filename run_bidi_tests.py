@@ -67,7 +67,7 @@ def parse_test_file(path: str, line_range: tuple[int, int] | None):
             if len(fields) != 5:
                 continue
 
-            text = "".join(chr(int(cp, 16)) for cp in fields[0].split())
+            text = "".join([chr(int(cp, 16)) for cp in fields[0].split()])
             direction = int(fields[1])
             para_level = int(fields[2])
             expected_levels = [
