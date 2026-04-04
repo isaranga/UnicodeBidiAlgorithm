@@ -256,13 +256,27 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
     levels = [ci.embedding_level for ci in chars]
     n = len(chars)
 
-    # Get level runs: contiguous runs of same level
+    # UAX #9 X9 removes BN characters before level runs are formed, so BN
+    # characters must not create run boundaries of their own.  We build an
+    # effective_levels array where every BN character inherits the embedding
+    # level of the nearest preceding non-BN character (falling back to the
+    # paragraph level at the start of the string).  This array is used for
+    # all level-run and sos/eos computations in place of the raw levels.
+    effective_levels = list(levels)
+    last_non_bn_level = paragraph_level
+    for i in range(n):
+        if chars[i].character_type == 'BN':
+            effective_levels[i] = last_non_bn_level
+        else:
+            last_non_bn_level = levels[i]
+
+    # Get level runs: contiguous runs of same effective level
     runs = []
     i = 0
     while i < n:
-        level = levels[i]
+        level = effective_levels[i]
         j = i + 1
-        while j < n and levels[j] == level:
+        while j < n and effective_levels[j] == level:
             j += 1
         runs.append(list(range(i, j)))
         i = j
@@ -333,26 +347,26 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         for r in irs_runs:
             all_indices.extend(r)
 
-        # Compute embedding level = level of first run
-        irs_level = levels[irs_runs[0][0]]
+        # Compute embedding level = effective level of first run
+        irs_level = effective_levels[irs_runs[0][0]]
 
         # Compute sos
         start_idx = irs_runs[0][0]
         if start_idx == 0:
             prev_level = paragraph_level
         else:
-            prev_level = levels[start_idx - 1]
+            prev_level = effective_levels[start_idx - 1]
         sos_level = max(prev_level, irs_level)
         sos = 'R' if (sos_level % 2) == 1 else 'L'
 
         # Compute eos
         last_run = irs_runs[-1]
         end_idx = last_run[-1]
-        irs_last_level = levels[last_run[0]]
+        irs_last_level = effective_levels[last_run[0]]
         if end_idx == n - 1:
             next_level = paragraph_level
         else:
-            next_level = levels[end_idx + 1]
+            next_level = effective_levels[end_idx + 1]
         eos_level = max(next_level, irs_last_level)
         eos = 'R' if (eos_level % 2) == 1 else 'L'
 
@@ -824,6 +838,11 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
     pairs = []
 
     for pos, idx in enumerate(run_indices):
+        # N0 only applies to characters that are currently neutral (ON).
+        # Characters overridden to L or R by LRO/RLO are not eligible.
+        if chars[idx].character_type != 'ON':
+            continue
+
         ch = chars[idx].character
         cp = ord(ch)
 
