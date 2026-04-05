@@ -469,31 +469,35 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
 
 def determine_paragraph_embedding_level(chars: list[CharacterInfo], verbose: bool = False) -> int:
     """
-    P2-P3: Find the first strong bidi type (L, R, AL) skipping isolate pairs.
+    P2-P3: Find the first strong bidi type (L, R, AL) at the paragraph level.
+    Characters between an isolate initiator and its matching PDI (or end of
+    paragraph) are skipped — only top-level characters are considered.
     Returns 0 for LTR paragraph, 1 for RTL paragraph.
     """
     open_isolate_count = 0
-    paragraph_level = 0
+    paragraph_level = 0  # P3 default: LTR if no strong type is found
 
     for ci in chars:
-        t = ci.character_type
-        if t in ISOLATE_INITIATOR_TYPES:
+        char_type = ci.character_type
+        if char_type in ISOLATE_INITIATOR_TYPES:
             open_isolate_count += 1
-        elif t == 'PDI':
+        elif char_type == 'PDI':
             if open_isolate_count > 0:
                 open_isolate_count -= 1
         elif open_isolate_count == 0:
-            if t in ('R', 'AL'):
+            if char_type in ('R', 'AL'):
                 paragraph_level = 1
                 break
-            elif t == 'L':
-                paragraph_level = 0
+            elif char_type == 'L':
+                paragraph_level = 0  # explicit for symmetry with the RTL case above
                 break
 
     if verbose:
+        # Phase P only reads character types; it does not mutate them.
+        # Both before and after columns are the same — showing current state only.
         types = [ci.character_type for ci in chars]
         print(f"=== Phase P: Paragraph Embedding Level = {paragraph_level} ===")
-        print_table("P2/P3", chars, types, types)
+        print_table("P2/P3 (read-only — no type changes)", chars, types, types)
 
     return paragraph_level
 
