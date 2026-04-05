@@ -548,6 +548,9 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
     """
     X1-X9: Assign embedding levels based on explicit formatting characters.
     Modifies chars[i].embedding_level and chars[i].character_type in place.
+    character_type changes: characters inside a directional override (RLO/LRO)
+    have their type set to 'R' or 'L'; characters whose original_type is in
+    X9_REMOVE_TYPES (RLE, LRE, RLO, LRO, PDF, BN) are reset to 'BN'.
     """
     # X1: Initialize
     stack = [(paragraph_embedding_level, 'neutral', False)]
@@ -556,9 +559,6 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
     valid_isolate_count = 0
 
     before_types = [ci.original_type for ci in chars]
-
-    for ci in chars:
-        ci.embedding_level = paragraph_embedding_level
 
     for ci in chars:
         t = ci.character_type
@@ -634,6 +634,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 ci.character_type = 'L'
             elif override == 'right-to-left':
                 ci.character_type = 'R'
+            # Level is determined by the resolved direction, not by the
+            # (possibly overridden) character_type above.
             if direction == 'RLI':
                 new_level = _least_greater_odd(level)
             else:
