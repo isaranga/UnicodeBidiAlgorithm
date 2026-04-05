@@ -397,7 +397,16 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
 def print_table(rule_name: str, chars: list[CharacterInfo],
                 types_before: list[str], types_after: list[str],
                 irs_label: str = '') -> None:
-    """Print a table showing rule effects on character positions."""
+    """
+    Print a before/after table showing the effect of a single rule application.
+
+    types_before and types_after are parallel lists of Bidi type strings, one
+    entry per element of chars.  irs_label, when provided, is appended to the
+    header to identify the isolating run sequence (e.g. "IRS level=2").
+
+    Prints nothing beyond the header line when types_before == types_after.
+    Changed cells in the After row are highlighted with BOLD_YELLOW ANSI colour.
+    """
     header = f"--- Rule {rule_name}"
     if irs_label:
         header += f" | {irs_label}"
