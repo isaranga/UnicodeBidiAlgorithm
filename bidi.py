@@ -312,7 +312,7 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
 
         while True:
             last_type = last_non_bn_type(current_run)
-            if last_type not in ('LRI', 'RLI', 'FSI'):
+            if last_type not in ISOLATE_INITIATOR_TYPES:
                 break
             # Find position of last non-BN char in current_run
             initiator_pos = None
@@ -328,7 +328,7 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
             pdi_pos = None
             for k in range(initiator_pos + 1, n):
                 t = chars[k].character_type
-                if t in ('LRI', 'RLI', 'FSI'):
+                if t in ISOLATE_INITIATOR_TYPES:
                     depth += 1
                 elif t == 'PDI':
                     depth -= 1
@@ -472,7 +472,7 @@ def determine_paragraph_embedding_level(chars: list[CharacterInfo], verbose: boo
 
     for ci in chars:
         t = ci.character_type
-        if t in ('LRI', 'RLI', 'FSI'):
+        if t in ISOLATE_INITIATOR_TYPES:
             open_isolate_count += 1
         elif t == 'PDI':
             if open_isolate_count > 0:
@@ -515,7 +515,7 @@ def _resolve_fsi_direction(chars: list[CharacterInfo], fsi_index: int) -> str:
     depth = 1
     for i in range(fsi_index + 1, len(chars)):
         t = chars[i].character_type
-        if t in ('LRI', 'RLI', 'FSI'):
+        if t in ISOLATE_INITIATOR_TYPES:
             depth += 1
         elif t == 'PDI':
             depth -= 1
