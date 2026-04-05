@@ -41,6 +41,9 @@ class CharacterInfo:
 MAX_DEPTH         = 125
 BRACKET_STACK_MAX = 63
 
+BOLD_YELLOW = "\033[1;33m"
+RESET       = "\033[0m"
+
 STRONG_TYPES             = frozenset({'L', 'R', 'AL'})
 WEAK_TYPES               = frozenset({'EN', 'ES', 'ET', 'AN', 'CS', 'NSM', 'BN'})
 NEUTRAL_TYPES            = frozenset({'B', 'S', 'WS', 'ON'})
@@ -439,8 +442,6 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
     print(fmt_row("Idx", idx_cells))
     print(fmt_row("Char", char_cells))
     print(fmt_row("Before", before_cells))
-    BOLD_YELLOW = "\033[1;33m"
-    RESET = "\033[0m"
     after_row = "After    |"
     for j, cell in enumerate(after_cells):
         padded = f"{cell:^{col_widths[j]}}"
