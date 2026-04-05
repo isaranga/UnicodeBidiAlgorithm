@@ -667,7 +667,7 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 pass  # X7: ignore
             elif overflow_embedding_count > 0:
                 overflow_embedding_count -= 1
-            elif not stack[-1][2] and len(stack) >= 2:
+            elif not is_isolate and len(stack) >= 2:
                 stack.pop()
             # Assign the level of the new stack top (after any pop), so that
             # PDF's BN does not create a spurious high-level run that would
