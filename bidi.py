@@ -373,12 +373,12 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         # X10: Compute eos
         last_run = irs_runs[-1]
         end_idx = last_run[-1]
-        irs_last_level = effective_levels[last_run[0]]
+        last_run_level = effective_levels[last_run[0]]
         if end_idx == n - 1:
             next_level = paragraph_level
         else:
             next_level = effective_levels[end_idx + 1]
-        eos_level = max(next_level, irs_last_level)
+        eos_level = max(next_level, last_run_level)
         eos = 'R' if (eos_level % 2) == 1 else 'L'
 
         sequences.append({
