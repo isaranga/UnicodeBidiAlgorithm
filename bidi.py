@@ -555,6 +555,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
     overflow_embedding_count = 0
     valid_isolate_count = 0
 
+    before_types = [ci.original_type for ci in chars]
+
     for ci in chars:
         ci.embedding_level = paragraph_embedding_level
 
@@ -686,9 +688,9 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             ci.character_type = 'BN'
 
     if verbose:
-        types = [ci.character_type for ci in chars]
+        after_types = [ci.character_type for ci in chars]
         print("=== Phase X: Explicit Embedding Levels ===")
-        print_table("X1-X9", chars, types, types)
+        print_table("X1-X9", chars, before_types, after_types)
 
 
 # ============================================================
