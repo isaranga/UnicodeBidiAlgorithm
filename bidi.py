@@ -519,11 +519,16 @@ def _least_greater_even(level: int) -> int:
 def _resolve_fsi_direction(chars: list[CharacterInfo], fsi_index: int) -> str:
     """
     X5c: Determine whether FSI should act as RLI or LRI.
-    Scan forward from fsi_index+1 to matching PDI, applying P2 rule.
+    Scan forward from fsi_index+1 to the matching PDI (or end of paragraph if
+    there is no matching PDI), applying the P2 rule: find the first strong type
+    (L, R, AL) while skipping over nested isolate pairs.
+    Returns 'RLI' if the first strong type is R or AL, 'LRI' otherwise (including
+    when no strong type is found — the P3 default).
+    Does not mutate chars.
     """
     depth = 1
     for i in range(fsi_index + 1, len(chars)):
-        t = chars[i].character_type
+        t = chars[i].original_type
         if t in ISOLATE_INITIATOR_TYPES:
             depth += 1
         elif t == 'PDI':
