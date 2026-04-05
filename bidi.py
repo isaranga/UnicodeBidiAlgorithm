@@ -252,6 +252,17 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
     """
     Compute isolating run sequences per UAX#9 BD13.
     Returns list of dicts with keys: run_indices, embedding_level, sos, eos
+
+    BN characters (removed by X9) are transparent to level-run formation: each
+    BN inherits the effective level of the nearest preceding non-BN character
+    (falling back to paragraph_level at the start of the string).  All
+    level-run boundaries and sos/eos values are computed from this effective
+    level array rather than from raw embedding levels.
+
+    sos and eos are computed per UAX #9 X10: each is 'R' or 'L' according to
+    the higher of the two adjacent levels (the IRS level and the level of the
+    neighbouring character outside the sequence, or paragraph_level at the
+    paragraph boundaries).
     """
     levels = [ci.embedding_level for ci in chars]
     n = len(chars)
@@ -350,7 +361,7 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         # Compute embedding level = effective level of first run
         irs_level = effective_levels[irs_runs[0][0]]
 
-        # Compute sos
+        # X10: Compute sos
         start_idx = irs_runs[0][0]
         if start_idx == 0:
             prev_level = paragraph_level
@@ -359,7 +370,7 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         sos_level = max(prev_level, irs_level)
         sos = 'R' if (sos_level % 2) == 1 else 'L'
 
-        # Compute eos
+        # X10: Compute eos
         last_run = irs_runs[-1]
         end_idx = last_run[-1]
         irs_last_level = effective_levels[last_run[0]]
