@@ -409,10 +409,6 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
 
     print(header)
 
-    n = len(chars)
-    if n == 0:
-        return
-
     # Build cell values for each column
     idx_cells = [str(ci.index) for ci in chars]
     char_cells = []
@@ -429,7 +425,7 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
 
     # Compute column widths
     col_widths = []
-    for j in range(n):
+    for j in range(len(chars)):
         w = max(3, len(idx_cells[j]), len(char_cells[j]),
                 len(before_cells[j]), len(after_cells[j]), len(level_cells[j]))
         col_widths.append(w)
@@ -442,18 +438,17 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
 
     print(fmt_row("Idx", idx_cells))
     print(fmt_row("Char", char_cells))
-    if changed:
-        print(fmt_row("Before", before_cells))
-        BOLD_YELLOW = "\033[1;33m"
-        RESET = "\033[0m"
-        after_row = "After    |"
-        for j, cell in enumerate(after_cells):
-            padded = f"{cell:^{col_widths[j]}}"
-            if after_changed[j]:
-                after_row += f" {BOLD_YELLOW}{padded}{RESET} |"
-            else:
-                after_row += f" {padded} |"
-        print(after_row)
+    print(fmt_row("Before", before_cells))
+    BOLD_YELLOW = "\033[1;33m"
+    RESET = "\033[0m"
+    after_row = "After    |"
+    for j, cell in enumerate(after_cells):
+        padded = f"{cell:^{col_widths[j]}}"
+        if after_changed[j]:
+            after_row += f" {BOLD_YELLOW}{padded}{RESET} |"
+        else:
+            after_row += f" {padded} |"
+    print(after_row)
     print(fmt_row("Level", level_cells))
     print()
 
