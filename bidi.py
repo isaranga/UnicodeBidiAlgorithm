@@ -718,7 +718,9 @@ def _apply_w1(types: list[str], sos: str) -> list[str]:
 
 
 def _apply_w2(types: list[str], sos: str) -> list[str]:
-    """W2: EN preceded by AL (looking back through neutrals is NOT done - just AL) -> AN."""
+    """W2: EN -> AN if the nearest preceding strong type (L, R, AL, or sos),
+    looking back through all non-strong characters, is AL.
+    """
     result = list(types)
     last_strong = sos
     for i in range(len(types)):
@@ -727,7 +729,8 @@ def _apply_w2(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'AL':
             result[i] = 'AN'
-        # BN is transparent: don't update last_strong
+        # Non-strong types (including BN, neutrals, and weak types) are transparent:
+        # they do not update last_strong
     return result
 
 
