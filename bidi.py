@@ -1121,9 +1121,19 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
 # ============================================================
 
 def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> None:
-    """I1-I2: Adjust embedding levels based on character types."""
+    """I1-I2: Raise embedding levels so every character resolves to its natural direction.
+
+    I1: For characters at an even (L) level — R goes up one, AN and EN go up two.
+    I2: For characters at an odd (R) level — L, EN, and AN go up one.
+
+    Precondition: weak and neutral rules must have resolved all character types to
+    L, R, EN, AN, or BN before this function is called. BN characters are skipped
+    and their levels are left unchanged. Mutates chars[i].embedding_level in place.
+    Returns None.
+    """
     # I1: even levels
-    before_i1 = [ci.embedding_level for ci in chars]
+    if verbose:
+        before_i1 = [ci.embedding_level for ci in chars]
     for ci in chars:
         if ci.character_type == 'BN':
             continue
@@ -1141,7 +1151,8 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
                                [str(l) for l in after_i1])
 
     # I2: odd levels
-    before_i2 = [ci.embedding_level for ci in chars]
+    if verbose:
+        before_i2 = [ci.embedding_level for ci in chars]
     for ci in chars:
         if ci.character_type == 'BN':
             continue
