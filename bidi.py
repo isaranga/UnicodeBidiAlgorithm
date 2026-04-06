@@ -922,10 +922,10 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
 
     embed_dir = 'R' if (embedding_level % 2) == 1 else 'L'
 
-    for open_pos, close_pos in pairs:
+    for open_ri, close_ri in pairs:
         # Scan inside bracket pair for strong types
         strong_found = None
-        for pos in range(open_pos + 1, close_pos):
+        for pos in range(open_ri + 1, close_ri):
             idx = run_indices[pos]
             t = chars[idx].character_type
             if t in ('L', 'R', 'AL', 'EN', 'AN'):
@@ -944,7 +944,7 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
         else:
             # Use context: find last strong type before open bracket
             context = sos
-            for pos in range(open_pos - 1, -1, -1):
+            for pos in range(open_ri - 1, -1, -1):
                 idx = run_indices[pos]
                 t = chars[idx].character_type
                 if t in ('L', 'R', 'AL', 'EN', 'AN'):
@@ -953,13 +953,13 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
             direction = context
 
         # Set both brackets to direction
-        open_idx = run_indices[open_pos]
-        close_idx = run_indices[close_pos]
+        open_idx = run_indices[open_ri]
+        close_idx = run_indices[close_ri]
         chars[open_idx].character_type = direction
         chars[close_idx].character_type = direction
 
         # Set NSMs after open bracket (skip over BN/X9 characters)
-        for pos in range(open_pos + 1, len(run_indices)):
+        for pos in range(open_ri + 1, len(run_indices)):
             idx = run_indices[pos]
             if chars[idx].original_type == 'NSM':
                 chars[idx].character_type = direction
@@ -969,7 +969,7 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
                 break
 
         # Set NSMs after close bracket (skip over BN/X9 characters)
-        for pos in range(close_pos + 1, len(run_indices)):
+        for pos in range(close_ri + 1, len(run_indices)):
             idx = run_indices[pos]
             if chars[idx].original_type == 'NSM':
                 chars[idx].character_type = direction
