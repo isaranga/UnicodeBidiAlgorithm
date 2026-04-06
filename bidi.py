@@ -996,7 +996,7 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
                 break
 
 
-def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
+def _apply_n1_n2(types: list[str], sos: str, eos: str,
                  embedding_level: int) -> list[str]:
     """
     N1: Neutral between same-direction strongs -> that direction.
@@ -1041,7 +1041,7 @@ def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
             if j == n:
                 after = eos
             else:
-                after = strong_equiv(result[j]) or eos
+                after = strong_equiv(result[j])
 
             # N1: both same direction -> that direction
             if before == after:
@@ -1087,7 +1087,7 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         # N1/N2
         types = [chars[i].character_type for i in run_indices]
         before_n12 = list(types)
-        types = _apply_n1_n2(types, run_indices, sos, eos, level)
+        types = _apply_n1_n2(types, sos, eos, level)
 
         if verbose:
             print_table("N1/N2", run_chars, before_n12, types, irs_label)
