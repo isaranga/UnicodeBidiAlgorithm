@@ -923,13 +923,14 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
     embed_dir = 'R' if (embedding_level % 2) == 1 else 'L'
 
     for open_ri, close_ri in pairs:
-        # Scan inside bracket pair for strong types
+        # Scan inside bracket pair for strong types (L, R, AL) and their
+        # N0 R-equivalents (EN, AN)
         strong_found = None
         for pos in range(open_ri + 1, close_ri):
             idx = run_indices[pos]
             t = chars[idx].character_type
-            if t in ('L', 'R', 'AL', 'EN', 'AN'):
-                effective = 'R' if t in ('R', 'AL', 'EN', 'AN') else 'L'
+            if t in STRONG_TYPES or t in R_EQUIVALENT_TYPES:
+                effective = 'R' if t in R_EQUIVALENT_TYPES else 'L'
                 if effective == embed_dir:
                     strong_found = embed_dir
                     break
@@ -947,8 +948,8 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
             for pos in range(open_ri - 1, -1, -1):
                 idx = run_indices[pos]
                 t = chars[idx].character_type
-                if t in ('L', 'R', 'AL', 'EN', 'AN'):
-                    context = 'R' if t in ('R', 'AL', 'EN', 'AN') else 'L'
+                if t in STRONG_TYPES or t in R_EQUIVALENT_TYPES:
+                    context = 'R' if t in R_EQUIVALENT_TYPES else 'L'
                     break
             direction = context
 
@@ -993,7 +994,7 @@ def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
     NEUTRAL_SET = frozenset({'B', 'S', 'WS', 'ON', 'BN', 'RLI', 'LRI', 'FSI', 'PDI'})
 
     def strong_equiv(t):
-        if t in ('R', 'AL', 'EN', 'AN'):
+        if t in R_EQUIVALENT_TYPES:
             return 'R'
         elif t == 'L':
             return 'L'
