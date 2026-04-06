@@ -1073,7 +1073,18 @@ def _apply_n1_n2(types: list[str], sos: str, eos: str,
 
 def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
                         verbose: bool = False) -> None:
-    """N0-N2: Resolve neutral and isolate formatting types per IRS."""
+    """N0-N2: Resolve neutral and isolate formatting characters per isolating run sequence.
+
+    N0: Bracket pairs containing a strong character take that direction; if both
+        directions are present, the embedding direction wins.
+    N1: A run of NI characters between two strong characters of the same direction
+        takes that direction.
+    N2: Any remaining NI characters take the embedding direction.
+
+    `paragraph_embedding_level` is used only to compute the isolating run sequences
+    (sos/eos context types and embedding levels). Mutates chars[i].character_type
+    in place. Returns None.
+    """
     sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
 
     for seq in sequences:
