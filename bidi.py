@@ -700,13 +700,18 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
 # ============================================================
 
 def _apply_w1(types: list[str], run_indices: list[int], sos: str) -> list[str]:
-    """W1: NSM takes type of preceding character (or sos), BN is transparent."""
+    """W1: NSM takes type of preceding character (or sos), BN is transparent.
+    Exception: if the preceding character is an isolate initiator or PDI, NSM -> ON.
+    """
     result = list(types)
     prev_type = sos
     for i in range(len(run_indices)):
         t = result[i]
         if t == 'NSM':
-            result[i] = prev_type
+            if prev_type in ISOLATE_INITIATOR_TYPES or prev_type == 'PDI':
+                result[i] = 'ON'
+            else:
+                result[i] = prev_type
         if t != 'BN':
             prev_type = result[i]
     return result
