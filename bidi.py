@@ -784,7 +784,9 @@ def _apply_w6(types: list[str]) -> list[str]:
 
 
 def _apply_w7(types: list[str], sos: str) -> list[str]:
-    """W7: EN after strong L (looking back through BN) -> L."""
+    """W7: EN -> L if the nearest preceding strong type (L or R, or sos),
+    looking back through all non-strong characters, is L.
+    """
     result = list(types)
     last_strong = sos
     for i in range(len(types)):
@@ -793,7 +795,8 @@ def _apply_w7(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'L':
             result[i] = 'L'
-        # BN is transparent: don't update last_strong
+        # Non-strong types (including BN, neutrals, and weak types) are transparent:
+        # they do not update last_strong
     return result
 
 
