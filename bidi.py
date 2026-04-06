@@ -915,7 +915,23 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
 
 def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
               sos: str, embedding_level: int) -> None:
-    """N0: Resolve bracket pairs."""
+    """
+    N0: Resolve the direction of bracket pairs within an isolating run sequence.
+
+    For each bracket pair (in open-bracket order):
+      1. Scan inside for strong types (L, R, AL, EN, AN). If the embedding
+         direction is found, assign it to both brackets. If only the opposite
+         direction is found, look at the last strong type before the open
+         bracket (falling back to sos) and assign that direction instead.
+      2. If no strong type is found inside, leave both brackets as ON.
+      3. Set any NSMs immediately following each bracket (skipping BN/X9
+         characters) to the same direction as the bracket.
+
+    Mutates chars[...].character_type in place. Returns None.
+
+    Preconditions: W rules have already been applied (character_type reflects
+    post-W state). sos is 'L' or 'R'.
+    """
     pairs = _find_bracket_pairs(chars, run_indices)
     if not pairs:
         return
