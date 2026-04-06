@@ -889,7 +889,7 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
 
         if cp in OPEN_BRACKET_TO_CLOSE:
             if len(bracket_stack) >= BRACKET_STACK_MAX:
-                return []  # overflow: skip N0
+                break  # overflow: return pairs found so far (UAX #9 BD16)
             close_cp = OPEN_BRACKET_TO_CLOSE[cp]
             bracket_stack.append((close_cp, pos))
 
