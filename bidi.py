@@ -1083,10 +1083,9 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         level = seq['embedding_level']
         irs_label = f"IRS level={level}"
 
-        run_chars = [chars[i] for i in run_indices]
-
         # N0: bracket pairs (modifies chars directly)
         if verbose:
+            run_chars = [chars[i] for i in run_indices]
             before_n0 = [chars[i].character_type for i in run_indices]
         _apply_n0(chars, run_indices, sos, level)
         if verbose:
@@ -1095,7 +1094,8 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
 
         # N1/N2
         types = [chars[i].character_type for i in run_indices]
-        before_n12 = list(types)
+        if verbose:
+            before_n12 = list(types)
         types = _apply_n1_n2(types, sos, eos, level)
 
         if verbose:
