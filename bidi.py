@@ -999,9 +999,18 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
 def _apply_n1_n2(types: list[str], sos: str, eos: str,
                  embedding_level: int) -> list[str]:
     """
-    N1: Neutral between same-direction strongs -> that direction.
-    N2: Remaining neutrals -> embedding direction.
-    EN and AN count as R for this purpose.
+    Apply UAX#9 rules N1 and N2 to a single isolating run sequence.
+
+    N1: A run of NI characters between two strong characters of the same
+        direction takes that direction.
+    N2: Any remaining NI characters take the embedding direction.
+
+    EN and AN are treated as R (strong right) for adjacency purposes.
+    sos and eos supply the strong context at the edges of the sequence.
+    BN characters are transparent: they do not break NI runs, are skipped
+    when searching for adjacent strong types, and their type is not changed.
+
+    `types` is not modified; a new list with resolved types is returned.
     """
     result = list(types)
     n = len(result)
