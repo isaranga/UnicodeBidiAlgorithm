@@ -699,13 +699,13 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
 # SECTION: W rules
 # ============================================================
 
-def _apply_w1(types: list[str], run_indices: list[int], sos: str) -> list[str]:
+def _apply_w1(types: list[str], sos: str) -> list[str]:
     """W1: NSM takes type of preceding character (or sos), BN is transparent.
     Exception: if the preceding character is an isolate initiator or PDI, NSM -> ON.
     """
     result = list(types)
     prev_type = sos
-    for i in range(len(run_indices)):
+    for i in range(len(types)):
         t = result[i]
         if t == 'NSM':
             if prev_type in ISOLATE_INITIATOR_TYPES or prev_type == 'PDI':
@@ -717,11 +717,11 @@ def _apply_w1(types: list[str], run_indices: list[int], sos: str) -> list[str]:
     return result
 
 
-def _apply_w2(types: list[str], run_indices: list[int], sos: str) -> list[str]:
+def _apply_w2(types: list[str], sos: str) -> list[str]:
     """W2: EN preceded by AL (looking back through neutrals is NOT done - just AL) -> AN."""
     result = list(types)
     last_strong = sos
-    for i in range(len(run_indices)):
+    for i in range(len(types)):
         t = result[i]
         if t in STRONG_TYPES:
             last_strong = t
@@ -780,11 +780,11 @@ def _apply_w6(types: list[str]) -> list[str]:
     return ['ON' if t in ('ES', 'ET', 'CS') else t for t in types]
 
 
-def _apply_w7(types: list[str], run_indices: list[int], sos: str) -> list[str]:
+def _apply_w7(types: list[str], sos: str) -> list[str]:
     """W7: EN after strong L (looking back through BN) -> L."""
     result = list(types)
     last_strong = sos
-    for i in range(len(run_indices)):
+    for i in range(len(types)):
         t = result[i]
         if t in ('L', 'R'):
             last_strong = t
@@ -813,13 +813,13 @@ def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
 
         # Apply W1
         before = list(types)
-        types = _apply_w1(types, run_indices, sos)
+        types = _apply_w1(types, sos)
         if verbose:
             print_table("W1", run_chars, before, types, irs_label)
 
         # Apply W2
         before = list(types)
-        types = _apply_w2(types, run_indices, sos)
+        types = _apply_w2(types, sos)
         if verbose:
             print_table("W2", run_chars, before, types, irs_label)
 
@@ -849,7 +849,7 @@ def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
 
         # Apply W7
         before = list(types)
-        types = _apply_w7(types, run_indices, sos)
+        types = _apply_w7(types, sos)
         if verbose:
             print_table("W7", run_chars, before, types, irs_label)
 
