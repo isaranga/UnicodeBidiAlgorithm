@@ -1007,7 +1007,7 @@ def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
     n = len(result)
     embed_dir = 'R' if (embedding_level % 2) == 1 else 'L'
 
-    NEUTRAL_SET = frozenset({'B', 'S', 'WS', 'ON', 'BN', 'RLI', 'LRI', 'FSI', 'PDI'})
+    NEUTRAL_SET = NEUTRAL_TYPES | ISOLATE_INITIATOR_TYPES | {'PDI'}
 
     def strong_equiv(t):
         if t in R_EQUIVALENT_TYPES:
@@ -1016,22 +1016,28 @@ def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
             return 'L'
         return None
 
+    # BN is treated as if not present (UAX#9 section 5.2): it does not start
+    # or end a neutral run, is skipped when looking for adjacent strong types,
+    # and its type is left unchanged during resolution.
     i = 0
     while i < n:
         if result[i] in NEUTRAL_SET:
-            # Find extent of neutral run
+            # Find extent of neutral run; BN is transparent, so extend through it
             j = i
-            while j < n and result[j] in NEUTRAL_SET:
+            while j < n and (result[j] in NEUTRAL_SET or result[j] == 'BN'):
                 j += 1
-            # result[i:j] is neutral run
+            # result[i:j] is the NI run (plus any interspersed BN)
 
-            # Determine strong type before
+            # Determine strong type before; skip backward over BN
             if i == 0:
                 before = sos
             else:
-                before = strong_equiv(result[i - 1]) or sos
+                k = i - 1
+                while k >= 0 and result[k] == 'BN':
+                    k -= 1
+                before = (strong_equiv(result[k]) if k >= 0 else None) or sos
 
-            # Determine strong type after
+            # Determine strong type after (scan already moved past BN)
             if j == n:
                 after = eos
             else:
@@ -1044,8 +1050,10 @@ def _apply_n1_n2(types: list[str], run_indices: list[int], sos: str, eos: str,
                 # N2: embedding direction
                 dir_to_use = embed_dir
 
+            # Resolve NI characters; leave BN type unchanged
             for k in range(i, j):
-                result[k] = dir_to_use
+                if result[k] != 'BN':
+                    result[k] = dir_to_use
 
             i = j
         else:
