@@ -802,13 +802,14 @@ def _apply_w7(types: list[str], sos: str) -> list[str]:
 
 def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
                      verbose: bool = False) -> None:
-    """W1-W7: Resolve weak bidi types per isolating run sequence."""
+    """W1-W7: Resolve weak bidi types per isolating run sequence.
+    Mutates chars[i].character_type in place. Returns None.
+    """
     sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
 
     for seq in sequences:
         run_indices = seq['run_indices']
         sos = seq['sos']
-        eos = seq['eos']
         level = seq['embedding_level']
         irs_label = f"IRS level={level}"
 
