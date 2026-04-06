@@ -872,13 +872,14 @@ def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
 def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> list[tuple[int, int]]:
     """
     N0: Find matching bracket pairs in the run.
-    Returns list of (open_pos, close_pos) pairs in order of the open bracket.
+    Returns list of (open_ri, close_ri) pairs sorted by open bracket position,
+    where each value is an index into run_indices (not an index into chars).
     Uses original characters (not types) for bracket matching.
     """
-    bracket_stack = []  # list of (close_bracket_codepoint, position_in_run_indices)
+    bracket_stack = []  # list of (close_bracket_codepoint, index_into_run_indices)
     pairs = []
 
-    for pos, idx in enumerate(run_indices):
+    for ri, idx in enumerate(run_indices):
         # N0 only applies to characters that are currently neutral (ON).
         # Characters overridden to L or R by LRO/RLO are not eligible.
         if chars[idx].character_type != 'ON':
@@ -891,7 +892,7 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
             if len(bracket_stack) >= BRACKET_STACK_MAX:
                 break  # overflow: return pairs found so far (UAX #9 BD16)
             close_cp = OPEN_BRACKET_TO_CLOSE[cp]
-            bracket_stack.append((close_cp, pos))
+            bracket_stack.append((close_cp, ri))
 
         elif cp in CLOSE_BRACKET_TO_OPEN:
             # Search bracket_stack for matching open.
@@ -902,8 +903,8 @@ def _find_bracket_pairs(chars: list[CharacterInfo], run_indices: list[int]) -> l
                 expected_nfd = unicodedata.normalize('NFD', chr(bracket_stack[si][0]))
                 if expected_nfd == cp_nfd:
                     # Found match
-                    open_pos = bracket_stack[si][1]
-                    pairs.append((open_pos, pos))
+                    open_ri = bracket_stack[si][1]
+                    pairs.append((open_ri, ri))
                     bracket_stack = bracket_stack[:si]
                     break
 
