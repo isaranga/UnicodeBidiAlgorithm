@@ -1272,12 +1272,18 @@ def _apply_l3(chars: list[CharacterInfo]) -> None:
 
 def _apply_l4(chars: list[CharacterInfo]) -> None:
     """
-    L4: Mirror characters that are at odd (RTL) embedding levels.
+    L4: For each character at an odd (RTL) embedding level, replace it with
+    its mirrored form if one exists in BIDI_MIRROR_TABLE.
+
+    Mutates ci.character in place (the only L helper that modifies the glyph
+    itself rather than character_type or embedding_level).  Characters with
+    Bidi_Mirrored=Yes that have no entry in BIDI_MIRROR_TABLE are left
+    unchanged — their mirroring is the rendering engine's responsibility.
     """
     for ci in chars:
         if ci.embedding_level % 2 == 1:
             cp = ord(ci.character)
-            if unicodedata.mirrored(ci.character) and cp in BIDI_MIRROR_TABLE:
+            if cp in BIDI_MIRROR_TABLE:
                 ci.character = chr(BIDI_MIRROR_TABLE[cp])
 
 
