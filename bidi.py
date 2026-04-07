@@ -1329,8 +1329,8 @@ def apply_bidi_algorithm(
             embedding level instead of running the P2/P3 auto-detection rules.
 
     Returns:
-        (embedding_levels, reordered_text, paragraph_level)
-        embedding_levels: list of final embedding levels (one per character, in visual order)
+        (logical_levels, reordered_text, paragraph_level)
+        logical_levels: resolved embedding levels in logical (input) order, after L1 resets
         reordered_text: visually reordered string
         paragraph_level: resolved paragraph embedding level (0=LTR, 1=RTL)
     """
@@ -1342,7 +1342,7 @@ def apply_bidi_algorithm(
     for i, ch in enumerate(text):
         btype = unicodedata.bidirectional(ch)
         if not btype:
-            btype = 'L'
+            btype = 'L'  # UAX#9 default: unassigned characters have Bidi_Class L
         chars.append(CharacterInfo(
             index=i,
             character=ch,
