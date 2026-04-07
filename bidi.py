@@ -1337,7 +1337,7 @@ def apply_bidi_algorithm(
         paragraph_level: resolved paragraph embedding level (0=LTR, 1=RTL)
     """
     if not text:
-        return [], '', 0
+        return [], '', paragraph_embedding_level if paragraph_embedding_level is not None else 0
 
     # Initialize CharacterInfo for each character
     chars = []
