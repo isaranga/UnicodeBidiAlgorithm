@@ -1290,30 +1290,33 @@ def _apply_l4(chars: list[CharacterInfo]) -> None:
 def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
                         verbose: bool = False) -> tuple[list[int], str]:
     """L1-L4: Apply visual reordering."""
+    if verbose:
+        before_levels = [str(ci.embedding_level) for ci in chars]
     _apply_l1(chars, paragraph_embedding_level)
-
     if verbose:
-        types = [ci.character_type for ci in chars]
+        after_levels = [str(ci.embedding_level) for ci in chars]
         print("=== After L1: Level Reset ===")
-        print_table("L1", chars, types, types)
-
-    _apply_l2(chars)
+        print_table("L1", chars, before_levels, after_levels)
 
     if verbose:
-        types = [ci.character_type for ci in chars]
+        before_order = [str(ci.index) for ci in chars]
+    _apply_l2(chars)
+    if verbose:
+        after_order = [str(ci.index) for ci in chars]
         print("=== After L2: Visual Reorder ===")
-        print_table("L2", chars, types, types)
+        print_table("L2", chars, before_order, after_order)
 
     _apply_l3(chars)
 
     reordered_text = ''.join(ci.character for ci in chars)
 
-    _apply_l4(chars)
-
     if verbose:
-        types = [ci.character_type for ci in chars]
+        before_chars = [ci.character for ci in chars]
+    _apply_l4(chars)
+    if verbose:
+        after_chars = [ci.character for ci in chars]
         print("=== After L4: Mirror ===")
-        print_table("L4", chars, types, types)
+        print_table("L4", chars, before_chars, after_chars)
 
     final_levels = [ci.embedding_level for ci in chars]
 
