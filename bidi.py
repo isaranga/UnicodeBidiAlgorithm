@@ -1258,17 +1258,15 @@ def _apply_l2(chars: list[CharacterInfo]) -> None:
 
 def _apply_l3(chars: list[CharacterInfo]) -> None:
     """
-    L3: Combining marks (NSM) should follow their base character.
-    After L2 reversal, NSMs may be separated from their base.
-    This simplified version re-attaches NSMs to their preceding base.
-    Note: Full UAX#9 L3 handles all combining mark categories; this
-    implementation handles the common NSM case.
+    L3: After L2 reversal, NSM combining marks at odd (RTL) embedding levels
+    may end up preceding their base character in logical order.
+
+    UAX #9 does not define a programmatic fix for this; the spec delegates
+    correct rendering of combining marks to the application or rendering engine.
+    Because L2 reverses NSMs as a unit within their level run, NSMs that share
+    a level with their base character are already kept together by that step.
+    No further action is taken here.
     """
-    # After reversal, combining marks should stay with their base character.
-    # In the simplified model: if a position has original_type NSM and the
-    # preceding character is not at a different embedding level, they stay together
-    # (L2 reversal handles them as a unit within the same level run).
-    # No additional action needed for basic compliance.
     pass
 
 
