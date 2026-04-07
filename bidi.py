@@ -1287,17 +1287,8 @@ def _apply_l4(chars: list[CharacterInfo]) -> None:
                 ci.character = chr(BIDI_MIRROR_TABLE[cp])
 
 
-def apply_reorder_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
-                        verbose: bool = False) -> tuple[list[int], str]:
-    """L1-L4: Apply visual reordering."""
-    if verbose:
-        before_levels = [str(ci.embedding_level) for ci in chars]
-    _apply_l1(chars, paragraph_embedding_level)
-    if verbose:
-        after_levels = [str(ci.embedding_level) for ci in chars]
-        print("=== After L1: Level Reset ===")
-        print_table("L1", chars, before_levels, after_levels)
-
+def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> tuple[list[int], str]:
+    """L2-L4: Apply visual reordering (L1 must be applied before calling)."""
     if verbose:
         before_order = [str(ci.index) for ci in chars]
     _apply_l2(chars)
@@ -1384,10 +1375,16 @@ def apply_bidi_algorithm(
     # L1 resets S/B and trailing whitespace to the paragraph level; those
     # reset levels are part of the "resolved" levels that conformance tests
     # check.  Apply L1 now, capture levels, then run L2-L4 for reordering.
+    if verbose:
+        before_levels = [str(ci.embedding_level) for ci in chars]
     _apply_l1(chars, paragraph_level)
+    if verbose:
+        after_levels = [str(ci.embedding_level) for ci in chars]
+        print("=== After L1: Level Reset ===")
+        print_table("L1", chars, before_levels, after_levels)
     logical_levels = [ci.embedding_level for ci in chars]
 
-    final_levels, reordered_text = apply_reorder_rules(chars, paragraph_level, verbose=verbose)
+    final_levels, reordered_text = apply_reorder_rules(chars, verbose=verbose)
 
     return logical_levels, reordered_text, paragraph_level
 
