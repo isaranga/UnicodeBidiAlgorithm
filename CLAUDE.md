@@ -21,10 +21,16 @@ When modifying code, keep this priority order: **clarity > correctness > perform
 
 ## Conformance testing
 
-`BidiCharacterTest.txt` (Unicode 15.1) and `run_bidi_tests.py` are verification tools used to check the correctness of `bidi.py` against the official Unicode test suite. They are **not** part of the educational project — readers do not need to read, run, or even know about them in order to understand the Unicode Bidirectional Algorithm.
+The test files and their runners are verification tools used to check the correctness of `bidi.py` against the official Unicode test suite. They are **not** part of the educational project — readers do not need to read, run, or even know about them in order to understand the Unicode Bidirectional Algorithm.
 
+`BidiCharacterTest.txt` (Unicode 15.1) tests the algorithm against real Unicode codepoints:
 ```bash
 python run_bidi_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
+```
+
+`BidiTest.txt` (Unicode 17.0.0) tests the algorithm against abstract bidi type sequences. The runner synthesizes representative Unicode characters for each bidi type, then verifies both embedding levels and visual reordering:
+```bash
+python run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
 ```
 
 ## Commands
@@ -37,7 +43,7 @@ python bidi.py
 **Use as a library:**
 ```python
 from bidi import apply_bidi_algorithm
-levels, reordered = apply_bidi_algorithm("Hello שלום", verbose=False)
+levels, reordered, para_level = apply_bidi_algorithm("Hello שלום", verbose=False)
 ```
 
 ## Architecture
@@ -73,6 +79,7 @@ Every phase and rule function accepts `verbose=True`. When enabled, `print_table
 
 ### Return value
 
-`apply_bidi_algorithm` returns `(logical_levels, reordered_text)`:
+`apply_bidi_algorithm` returns `(logical_levels, reordered_text, paragraph_level)`:
 - `logical_levels` — embedding levels captured after phase I (before L1 resets)
 - `reordered_text` — visually reordered string after all L rules
+- `paragraph_level` — resolved paragraph embedding level (0 = LTR, 1 = RTL)
