@@ -1287,7 +1287,7 @@ def _apply_l4(chars: list[CharacterInfo]) -> None:
                 ci.character = chr(BIDI_MIRROR_TABLE[cp])
 
 
-def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> tuple[list[int], str]:
+def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> str:
     """L2-L4: Apply visual reordering (L1 must be applied before calling)."""
     if verbose:
         before_order = [str(ci.index) for ci in chars]
@@ -1309,9 +1309,7 @@ def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> tu
         print("=== After L4: Mirror ===")
         print_table("L4", chars, before_chars, after_chars)
 
-    final_levels = [ci.embedding_level for ci in chars]
-
-    return final_levels, reordered_text
+    return reordered_text
 
 
 # ============================================================
@@ -1384,7 +1382,7 @@ def apply_bidi_algorithm(
         print_table("L1", chars, before_levels, after_levels)
     logical_levels = [ci.embedding_level for ci in chars]
 
-    final_levels, reordered_text = apply_reorder_rules(chars, verbose=verbose)
+    reordered_text = apply_reorder_rules(chars, verbose=verbose)
 
     return logical_levels, reordered_text, paragraph_level
 
