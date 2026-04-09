@@ -156,6 +156,7 @@ _MODE_NAMES = {0: 'auto', 1: 'LTR', 2: 'RTL'}
 def run_test(tc: TestCase) -> tuple[bool, str]:
     """Run a single test case. Returns (passed, failure_description)."""
     text = build_text(tc.types)
+    chars_repr = [repr(ch) for ch in text]
     forced_level = {0: None, 1: 0, 2: 1}[tc.para_mode]
     try:
         logical_levels, reordered_text, _ = apply_bidi_algorithm(
@@ -165,6 +166,7 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
         tb = traceback.format_exc().rstrip()
         return False, (
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | types={tc.types}\n"
+            f"  chars={chars_repr}\n"
             f"  exception:\n"
             + "\n".join(f"    {line}" for line in tb.splitlines())
         )
@@ -173,12 +175,14 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     if len(logical_levels) != len(text):
         return False, (
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
-            f"logical_levels length {len(logical_levels)} != text length {len(text)}"
+            f"logical_levels length {len(logical_levels)} != text length {len(text)}\n"
+            f"  chars={chars_repr}"
         )
     if len(reordered_text) != len(text):
         return False, (
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
-            f"reordered_text length {len(reordered_text)} != text length {len(text)}"
+            f"reordered_text length {len(reordered_text)} != text length {len(text)}\n"
+            f"  chars={chars_repr}"
         )
 
     # --- Levels check ---
@@ -206,7 +210,10 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     if levels_ok and reorder_ok:
         return True, ''
 
-    lines = [f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | types={tc.types}"]
+    lines = [
+        f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | types={tc.types}",
+        f"  chars={chars_repr}",
+    ]
     if not levels_ok:
         exp_str, act_str = _highlight_diff(expected_levels_filtered, actual_levels)
         lines.append(f"  levels   expected: {exp_str}")
