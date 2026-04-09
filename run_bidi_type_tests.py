@@ -41,24 +41,26 @@ X9_TYPES = frozenset({"RLE", "LRE", "RLO", "LRO", "PDF", "BN"})
 
 # Representative characters for each UAX#9 bidi class.
 # Each character must have exactly the stated bidi class (verified below at module load).
-# Pools with >=4 entries allow unique-per-position synthesis for sequences up to length 4,
-# which is the maximum sequence length in BidiTest.txt.
+# Pool sizes are set to cover the maximum repeat count of each type observed in BidiTest.txt
+# (e.g. L appears up to 14 times in one sequence, R up to 13, etc.).
+# Types with inherently few Unicode codepoints (B, S, ES, LRI/RLI/FSI/PDI) cannot be expanded
+# further; repeated occurrences of those types will still cause the reorder check to be skipped.
 # X9 types have only one Unicode codepoint each, so their pool is size 1.
 TYPE_CHARS: dict[str, list[str]] = {
-    'L':   list('ABCDEFGH'),
-    'R':   ['\u05D0', '\u05D1', '\u05D2', '\u05D3'],  # Hebrew alef, bet, gimel, dalet
-    'AL':  ['\u0627', '\u0628', '\u062A', '\u062B'],  # Arabic alef, ba, ta, tha
-    'AN':  ['\u0660', '\u0661', '\u0662', '\u0663'],  # Arabic-Indic digits 0-3
-    'EN':  ['1', '2', '3', '4'],
-    'ES':  ['+', '\u2212'],                           # plus, minus sign (only 2 ES in Unicode)
+    'L':   list('ABCDEFGHIJKLMNOPQRST'),              # 20 chars; max repeat in file: 14
+    'R':   [chr(c) for c in range(0x05D0, 0x05DF)],  # Hebrew alef..mem (15 letters); max repeat: 13
+    'AL':  [chr(c) for c in range(0x0627, 0x062F)],  # Arabic alef..dal (8 letters); max repeat: 8
+    'AN':  [chr(c) for c in range(0x0660, 0x0666)],  # Arabic-Indic digits 0-5 (6); max repeat: 6
+    'EN':  list('0123456789'),                        # ASCII digits; max repeat: 8
+    'ES':  ['+', '-', '\u207A', '\u207B'],            # plus, hyphen-minus, superscript plus/minus
     'ET':  ['$', '%', '\u00A3', '\u00A5'],            # dollar, percent, pound, yen
     'CS':  [',', '.', '\uFE50', '\uFE52'],            # comma, period, small comma, small full stop
     'NSM': ['\u0300', '\u0301', '\u0302', '\u0303'],  # combining grave, acute, circumflex, tilde
     'BN':  ['\u200B', '\u2060', '\uFEFF', '\u200C'],  # zero-width space, word joiner, BOM, ZWNJ
-    'B':   ['\u2029'],                                # paragraph separator
-    'S':   ['\t', '\u000B'],                          # tab, vertical tab
-    'WS':  [' ', '\u2000', '\u2001', '\u2002'],       # space, en quad, em quad, en space
-    'ON':  ['!', '?', '@', '*'],
+    'B':   ['\u2029'],                                # paragraph separator (only 1 in Unicode)
+    'S':   ['\t', '\u000B', '\u001F'],                # tab, vertical tab, unit separator
+    'WS':  [' ', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004'],  # spaces; max repeat: 7
+    'ON':  ['!', '?', '@', '*', '=', '~', '|'],      # safe punctuation (no brackets); max repeat: 7
     'LRE': ['\u202A'],  # X9
     'RLE': ['\u202B'],  # X9
     'LRO': ['\u202D'],  # X9
@@ -153,8 +155,8 @@ def parse_test_file(path: str, line_range: tuple[int, int] | None):
 _MODE_NAMES = {0: 'auto', 1: 'LTR', 2: 'RTL'}
 
 
-def run_test(tc: TestCase) -> tuple[bool, str]:
-    """Run a single test case. Returns (passed, failure_description)."""
+def run_test(tc: TestCase) -> tuple[bool, str, bool]:
+    """Run a single test case. Returns (passed, failure_description, reorder_skipped)."""
     text = build_text(tc.types)
     chars_repr = [repr(ch) for ch in text]
     forced_level = {0: None, 1: 0, 2: 1}[tc.para_mode]
@@ -169,7 +171,7 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
             f"  chars={chars_repr}\n"
             f"  exception:\n"
             + "\n".join(f"    {line}" for line in tb.splitlines())
-        )
+        ), False
 
     # --- Sanity-check output lengths ---
     if len(logical_levels) != len(text):
@@ -177,13 +179,13 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
             f"logical_levels length {len(logical_levels)} != text length {len(text)}\n"
             f"  chars={chars_repr}"
-        )
+        ), False
     if len(reordered_text) != len(text):
         return False, (
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
             f"reordered_text length {len(reordered_text)} != text length {len(text)}\n"
             f"  chars={chars_repr}"
-        )
+        ), False
 
     # --- Levels check ---
     actual_levels = [lvl for tp, lvl in zip(tc.types, logical_levels) if tp not in X9_TYPES]
@@ -196,7 +198,8 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     # occurrences produce duplicate characters. Index tracking is only reliable when every
     # non-X9 character in the synthesized string is unique.
     non_x9_chars = [ch for tp, ch in zip(tc.types, text) if tp not in X9_TYPES]
-    if len(set(non_x9_chars)) == len(non_x9_chars):
+    reorder_skipped = len(set(non_x9_chars)) != len(non_x9_chars)
+    if not reorder_skipped:
         char_to_orig_idx = {ch: i for i, ch in enumerate(text)}
         non_x9_reordered = [
             ch for ch in reordered_text
@@ -205,10 +208,10 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
         actual_reorder = [char_to_orig_idx[ch] for ch in non_x9_reordered]
         reorder_ok = actual_reorder == tc.expected_reorder
     else:
-        reorder_ok = True  # skip: duplicate non-X9 chars prevent reliable index tracking
+        reorder_ok = True
 
     if levels_ok and reorder_ok:
-        return True, ''
+        return True, '', reorder_skipped
 
     lines = [
         f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | types={tc.types}",
@@ -222,19 +225,22 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
         exp_str, act_str = _highlight_diff(tc.expected_reorder, actual_reorder)
         lines.append(f"  reorder  expected: {exp_str}")
         lines.append(f"           actual:   {act_str}")
-    return False, '\n'.join(lines)
+    return False, '\n'.join(lines), False
 
 
 def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, fail_fast: bool):
     passed = 0
     failed = 0
+    reorder_skipped = 0
     printed_failures = 0
     progress_interval = 5000
     processed = 0
 
     for tc in parse_test_file(path, line_range):
-        ok, description = run_test(tc)
+        ok, description, skipped = run_test(tc)
         processed += 1
+        if skipped:
+            reorder_skipped += 1
         if ok:
             passed += 1
         else:
@@ -251,9 +257,10 @@ def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, 
 
     total = passed + failed
     print(f"\nPassed: {passed}  Failed: {failed}  Total: {total}")
-
     if failed > printed_failures:
         print(f"  ... and {failed - printed_failures} more failures (increase --max-failures to see them)")
+    if reorder_skipped:
+        print(f"  (reorder check skipped for {reorder_skipped} tests)")
 
     sys.exit(0 if failed == 0 else 1)
 
