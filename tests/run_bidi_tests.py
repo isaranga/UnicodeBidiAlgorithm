@@ -15,7 +15,9 @@ import sys
 import traceback
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from bidi import apply_bidi_algorithm
 
 _YLW = "\033[33m"   # yellow
@@ -206,8 +208,8 @@ def main():
     parser.add_argument(
         "test_file",
         nargs="?",
-        default="BidiCharacterTest.txt",
-        help="Path to BidiCharacterTest.txt (default: BidiCharacterTest.txt)",
+        default=str(Path(__file__).parent / "BidiCharacterTest.txt"),
+        help="Path to BidiCharacterTest.txt (default: next to this script)",
     )
     parser.add_argument(
         "--max-failures",

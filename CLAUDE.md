@@ -23,14 +23,14 @@ When modifying code, keep this priority order: **clarity > correctness > perform
 
 The test files and their runners are verification tools used to check the correctness of `bidi.py` against the official Unicode test suite. They are **not** part of the educational project — readers do not need to read, run, or even know about them in order to understand the Unicode Bidirectional Algorithm.
 
-`BidiCharacterTest.txt` (Unicode 15.1) tests the algorithm against real Unicode codepoints:
+`tests/BidiCharacterTest.txt` (Unicode 15.1) tests the algorithm against real Unicode codepoints:
 ```bash
-python run_bidi_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
+python tests/run_bidi_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
 ```
 
-`BidiTest.txt` (Unicode 17.0.0) tests the algorithm against abstract bidi type sequences. The runner synthesizes representative Unicode characters for each bidi type, then verifies both embedding levels and visual reordering:
+`tests/BidiTest.txt` (Unicode 17.0.0) tests the algorithm against abstract bidi type sequences. The runner synthesizes representative Unicode characters for each bidi type, then verifies both embedding levels and visual reordering:
 ```bash
-python run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
+python tests/run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
 ```
 
 ## Commands
