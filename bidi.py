@@ -745,17 +745,35 @@ def _apply_w3(types: list[str]) -> list[str]:
 
 
 def _apply_w4(types: list[str]) -> list[str]:
-    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type."""
+    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type.
+    BN characters are transparent (UAX#9 section 5.2) and are skipped when
+    searching for the neighboring type on either side of the separator."""
     result = list(types)
     n = len(result)
     for i in range(1, n - 1):
+        if result[i] not in ('ES', 'CS'):
+            continue
+        # Find nearest non-BN type before position i.
+        j = i - 1
+        while j >= 0 and result[j] == 'BN':
+            j -= 1
+        if j < 0:
+            continue
+        prev_type = result[j]
+        # Find nearest non-BN type after position i.
+        k = i + 1
+        while k < n and result[k] == 'BN':
+            k += 1
+        if k >= n:
+            continue
+        next_type = result[k]
         if result[i] == 'ES':
-            if result[i - 1] == 'EN' and result[i + 1] == 'EN':
+            if prev_type == 'EN' and next_type == 'EN':
                 result[i] = 'EN'
-        elif result[i] == 'CS':
-            if result[i - 1] == 'EN' and result[i + 1] == 'EN':
+        else:  # CS
+            if prev_type == 'EN' and next_type == 'EN':
                 result[i] = 'EN'
-            elif result[i - 1] == 'AN' and result[i + 1] == 'AN':
+            elif prev_type == 'AN' and next_type == 'AN':
                 result[i] = 'AN'
     return result
 
