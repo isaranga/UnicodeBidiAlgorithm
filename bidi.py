@@ -759,11 +759,14 @@ def _apply_w5(types: list[str]) -> list[str]:
     """W5: ET adjacent to EN -> EN (sequences of ET adjacent to EN become EN)."""
     result = list(types)
     n = len(result)
+    # BN characters (X9-removed formatting characters such as unmatched PDF)
+    # are transparent to adjacency checks in all W rules (UAX#9 section 5.2),
+    # so the scans below skip both ET and BN when searching for a bordering EN.
     # Forward pass: ET following EN
     for i in range(n):
         if result[i] == 'ET':
             j = i - 1
-            while j >= 0 and result[j] == 'ET':
+            while j >= 0 and result[j] in ('ET', 'BN'):
                 j -= 1
             if j >= 0 and result[j] == 'EN':
                 result[i] = 'EN'
@@ -771,7 +774,7 @@ def _apply_w5(types: list[str]) -> list[str]:
     for i in range(n - 1, -1, -1):
         if result[i] == 'ET':
             j = i + 1
-            while j < n and result[j] == 'ET':
+            while j < n and result[j] in ('ET', 'BN'):
                 j += 1
             if j < n and result[j] == 'EN':
                 result[i] = 'EN'
