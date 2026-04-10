@@ -1179,7 +1179,7 @@ def _apply_l1(chars: list[CharacterInfo], paragraph_embedding_level: int) -> Non
     Uses original_type, not character_type.
     """
     n = len(chars)
-    _reset_set = {'WS', 'BN'} | ISOLATE_INITIATOR_TYPES | {'PDI'}
+    _reset_set = {'WS'} | X9_REMOVE_TYPES | ISOLATE_INITIATOR_TYPES | {'PDI'}
 
     # Step 1: Any S or B: reset to paragraph_embedding_level,
     # and reset all WS/BN/isolate chars before it
