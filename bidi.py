@@ -377,7 +377,12 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         last_run = irs_runs[-1]
         end_idx = last_run[-1]
         last_run_level = effective_levels[last_run[0]]
-        if end_idx == n - 1:
+        last_type = last_non_bn_type(last_run)
+        # Per X10: use paragraph_level when at end of paragraph, or when the last
+        # character is an unmatched isolate initiator (a matched one would have
+        # caused the loop above to chain another run, so any isolate initiator
+        # still at the tail of irs_runs is necessarily unmatched).
+        if end_idx == n - 1 or last_type in ISOLATE_INITIATOR_TYPES:
             next_level = paragraph_level
         else:
             next_level = effective_levels[end_idx + 1]
