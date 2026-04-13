@@ -569,7 +569,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
         t = ci.character_type
         level, override, is_isolate = stack[-1]
 
-        if t == 'RLE':  # X2
+        # X2: RLE pushes a new right-to-left embedding level onto the stack
+        if t == 'RLE':
             ci.embedding_level = level
             new_level = _least_greater_odd(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
@@ -578,7 +579,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 if overflow_isolate_count == 0:
                     overflow_embedding_count += 1
 
-        elif t == 'LRE':  # X3
+        # X3: LRE pushes a new left-to-right embedding level onto the stack
+        elif t == 'LRE':
             ci.embedding_level = level
             new_level = _least_greater_even(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
@@ -587,7 +589,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 if overflow_isolate_count == 0:
                     overflow_embedding_count += 1
 
-        elif t == 'RLO':  # X4
+        # X4: RLO pushes a right-to-left override level onto the stack
+        elif t == 'RLO':
             ci.embedding_level = level
             new_level = _least_greater_odd(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
@@ -596,7 +599,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 if overflow_isolate_count == 0:
                     overflow_embedding_count += 1
 
-        elif t == 'LRO':  # X5
+        # X5: LRO pushes a left-to-right override level onto the stack
+        elif t == 'LRO':
             ci.embedding_level = level
             new_level = _least_greater_even(level)
             if new_level <= MAX_DEPTH and overflow_isolate_count == 0 and overflow_embedding_count == 0:
@@ -605,7 +609,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 if overflow_isolate_count == 0:
                     overflow_embedding_count += 1
 
-        elif t == 'RLI':  # X5a
+        # X5a: RLI pushes a right-to-left isolate entry onto the stack
+        elif t == 'RLI':
             ci.embedding_level = level
             if override == 'left-to-right':
                 ci.character_type = 'L'
@@ -618,7 +623,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             else:
                 overflow_isolate_count += 1
 
-        elif t == 'LRI':  # X5b
+        # X5b: LRI pushes a left-to-right isolate entry onto the stack
+        elif t == 'LRI':
             ci.embedding_level = level
             if override == 'left-to-right':
                 ci.character_type = 'L'
@@ -631,7 +637,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             else:
                 overflow_isolate_count += 1
 
-        elif t == 'FSI':  # X5c
+        # X5c: FSI resolves direction first, then pushes as an isolate (like RLI or LRI)
+        elif t == 'FSI':
             direction = _resolve_fsi_direction(chars, ci.index)
             ci.character_type = direction
             ci.embedding_level = level
@@ -651,7 +658,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             else:
                 overflow_isolate_count += 1
 
-        elif t == 'PDI':  # X6a
+        # X6a: PDI closes the matching isolate entry
+        elif t == 'PDI':
             if overflow_isolate_count > 0:
                 overflow_isolate_count -= 1
             elif valid_isolate_count > 0:
@@ -667,9 +675,10 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             elif override == 'right-to-left':
                 ci.character_type = 'R'
 
-        elif t == 'PDF':  # X7
+        # X7: PDF closes the matching embedding entry
+        elif t == 'PDF':
             if overflow_isolate_count > 0:
-                pass  # X7: ignore
+                pass
             elif overflow_embedding_count > 0:
                 overflow_embedding_count -= 1
             elif not is_isolate and len(stack) >= 2:
@@ -679,10 +688,12 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             # split the isolating run sequence around it.
             ci.embedding_level = stack[-1][0]
 
-        elif t == 'B':  # X8: paragraph separator resets
+        # X8: paragraph separator resets to paragraph embedding level
+        elif t == 'B':
             ci.embedding_level = paragraph_embedding_level
 
-        else:  # X6: normal character
+        # X6: all other characters get the current level; apply override type if active
+        else:
             ci.embedding_level = level
             if override == 'left-to-right':
                 ci.character_type = 'L'
