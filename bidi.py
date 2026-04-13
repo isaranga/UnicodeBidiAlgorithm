@@ -9,11 +9,11 @@ Unicode version caveat: This implementation targets Unicode 15.1.
 
 Usage:
     from bidi import apply_bidi_algorithm
-    levels, reordered = apply_bidi_algorithm("Hello \u05e9\u05dc\u05d5\u05dd", verbose=False)
+    levels, reordered, para_level = apply_bidi_algorithm("Hello עולם", verbose=False)
 
 Demo:
     python bidi.py
-    Runs five built-in example strings through the full algorithm with verbose output.
+    Runs built-in example strings through the full algorithm with verbose output.
 """
 
 from __future__ import annotations
