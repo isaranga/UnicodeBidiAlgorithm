@@ -781,28 +781,36 @@ def _apply_w4(types: list[str]) -> list[str]:
     return result
 
 
+def _get_prev_non_et_bn(types: list[str], index: int) -> str | None:
+    """Return the nearest type before *index* that is not ET or BN, or None."""
+    j = index - 1
+    while j >= 0 and types[j] in ('ET', 'BN'):
+        j -= 1
+    return types[j] if j >= 0 else None
+
+
+def _get_next_non_et_bn(types: list[str], index: int) -> str | None:
+    """Return the nearest type after *index* that is not ET or BN, or None."""
+    k = index + 1
+    while k < len(types) and types[k] in ('ET', 'BN'):
+        k += 1
+    return types[k] if k < len(types) else None
+
+
 def _apply_w5(types: list[str]) -> list[str]:
-    """W5: ET adjacent to EN -> EN (sequences of ET adjacent to EN become EN)."""
+    """W5: ET adjacent to EN -> EN (sequences of ET adjacent to EN become EN).
+    BN characters are transparent (UAX#9 section 5.2), so the scans skip both
+    ET and BN when searching for a bordering EN."""
     result = list(types)
-    n = len(result)
-    # BN characters (X9-removed formatting characters such as unmatched PDF)
-    # are transparent to adjacency checks in all W rules (UAX#9 section 5.2),
-    # so the scans below skip both ET and BN when searching for a bordering EN.
     # Forward pass: ET following EN
-    for i in range(n):
+    for i in range(len(result)):
         if result[i] == 'ET':
-            j = i - 1
-            while j >= 0 and result[j] in ('ET', 'BN'):
-                j -= 1
-            if j >= 0 and result[j] == 'EN':
+            if _get_prev_non_et_bn(result, i) == 'EN':
                 result[i] = 'EN'
     # Backward pass: ET preceding EN
-    for i in range(n - 1, -1, -1):
+    for i in range(len(result) - 1, -1, -1):
         if result[i] == 'ET':
-            j = i + 1
-            while j < n and result[j] in ('ET', 'BN'):
-                j += 1
-            if j < n and result[j] == 'EN':
+            if _get_next_non_et_bn(result, i) == 'EN':
                 result[i] = 'EN'
     return result
 
