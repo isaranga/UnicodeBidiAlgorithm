@@ -1168,6 +1168,38 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
 # SECTION: I rules
 # ============================================================
 
+def _apply_i1(chars: list[CharacterInfo], verbose: bool = False) -> None:
+    """I1: For characters at an even (L) level — R goes up one, AN and EN go up two."""
+    if verbose:
+        before = [ci.embedding_level for ci in chars]
+    for ci in chars:
+        if ci.character_type == 'BN':
+            continue
+        if ci.embedding_level % 2 == 0:  # even
+            if ci.character_type == 'R':
+                ci.embedding_level += 1
+            elif ci.character_type in ('AN', 'EN'):
+                ci.embedding_level += 2
+    if verbose:
+        after = [ci.embedding_level for ci in chars]
+        print_table("I1", chars, [str(l) for l in before], [str(l) for l in after])
+
+
+def _apply_i2(chars: list[CharacterInfo], verbose: bool = False) -> None:
+    """I2: For characters at an odd (R) level — L, EN, and AN go up one."""
+    if verbose:
+        before = [ci.embedding_level for ci in chars]
+    for ci in chars:
+        if ci.character_type == 'BN':
+            continue
+        if ci.embedding_level % 2 == 1:  # odd
+            if ci.character_type in ('L', 'EN', 'AN'):
+                ci.embedding_level += 1
+    if verbose:
+        after = [ci.embedding_level for ci in chars]
+        print_table("I2", chars, [str(l) for l in before], [str(l) for l in after])
+
+
 def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> None:
     """I1-I2: Raise embedding levels so every character resolves to its natural direction.
 
@@ -1179,41 +1211,8 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
     and their levels are left unchanged. Mutates chars[i].embedding_level in place.
     Returns None.
     """
-    # I1: even levels
-    if verbose:
-        before_i1 = [ci.embedding_level for ci in chars]
-    for ci in chars:
-        if ci.character_type == 'BN':
-            continue
-        level = ci.embedding_level
-        if level % 2 == 0:  # even
-            if ci.character_type == 'R':
-                ci.embedding_level += 1
-            elif ci.character_type in ('AN', 'EN'):
-                ci.embedding_level += 2
-
-    if verbose:
-        after_i1 = [ci.embedding_level for ci in chars]
-        print_table("I1", chars,
-                               [str(l) for l in before_i1],
-                               [str(l) for l in after_i1])
-
-    # I2: odd levels
-    if verbose:
-        before_i2 = [ci.embedding_level for ci in chars]
-    for ci in chars:
-        if ci.character_type == 'BN':
-            continue
-        level = ci.embedding_level
-        if level % 2 == 1:  # odd
-            if ci.character_type in ('L', 'EN', 'AN'):
-                ci.embedding_level += 1
-
-    if verbose:
-        after_i2 = [ci.embedding_level for ci in chars]
-        print_table("I2", chars,
-                               [str(l) for l in before_i2],
-                               [str(l) for l in after_i2])
+    _apply_i1(chars, verbose=verbose)
+    _apply_i2(chars, verbose=verbose)
 
 
 # ============================================================
