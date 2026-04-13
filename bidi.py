@@ -1022,14 +1022,13 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
                 break
 
 
-def _apply_n1_n2(types: list[str], sos: str, eos: str,
-                 embedding_level: int) -> list[str]:
+def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
     """
-    Apply UAX#9 rules N1 and N2 to a single isolating run sequence.
+    Apply UAX#9 rule N1 to a single isolating run sequence.
 
-    N1: A run of NI characters between two strong characters of the same
-        direction takes that direction.
-    N2: Any remaining NI characters take the embedding direction.
+    A run of NI characters between two strong characters of the same
+    direction takes that direction. Runs flanked by strong characters of
+    differing direction are left unchanged (to be resolved by N2).
 
     EN and AN are treated as R (strong right) for adjacency purposes.
     sos and eos supply the strong context at the edges of the sequence.
@@ -1040,7 +1039,6 @@ def _apply_n1_n2(types: list[str], sos: str, eos: str,
     """
     result = list(types)
     n = len(result)
-    embed_dir = 'R' if (embedding_level % 2) == 1 else 'L'
 
     NEUTRAL_SET = NEUTRAL_TYPES | ISOLATE_INITIATOR_TYPES | {'PDI'}
 
@@ -1078,21 +1076,39 @@ def _apply_n1_n2(types: list[str], sos: str, eos: str,
             else:
                 after = strong_equiv(result[j])
 
-            # N1: both same direction -> that direction
+            # N1: both sides agree -> resolve NI characters to that direction;
+            # leave BN type unchanged
             if before == after:
-                dir_to_use = before
-            else:
-                # N2: embedding direction
-                dir_to_use = embed_dir
-
-            # Resolve NI characters; leave BN type unchanged
-            for k in range(i, j):
-                if result[k] != 'BN':
-                    result[k] = dir_to_use
+                for k in range(i, j):
+                    if result[k] != 'BN':
+                        result[k] = before
 
             i = j
         else:
             i += 1
+
+    return result
+
+
+def _apply_n2(types: list[str], embedding_level: int) -> list[str]:
+    """
+    Apply UAX#9 rule N2 to a single isolating run sequence.
+
+    Any remaining NI characters (those not resolved by N1) take the
+    embedding direction.
+
+    BN characters are transparent and are left unchanged.
+
+    `types` is not modified; a new list with resolved types is returned.
+    """
+    result = list(types)
+    embed_dir = 'R' if (embedding_level % 2) == 1 else 'L'
+
+    NEUTRAL_SET = NEUTRAL_TYPES | ISOLATE_INITIATOR_TYPES | {'PDI'}
+
+    for i in range(len(result)):
+        if result[i] in NEUTRAL_SET:
+            result[i] = embed_dir
 
     return result
 
@@ -1129,14 +1145,20 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
             after_n0 = [chars[i].character_type for i in run_indices]
             print_table("N0", run_chars, before_n0, after_n0, irs_label)
 
-        # N1/N2
+        # N1
         types = [chars[i].character_type for i in run_indices]
         if verbose:
-            before_n12 = list(types)
-        types = _apply_n1_n2(types, sos, eos, level)
-
+            before_n1 = list(types)
+        types = _apply_n1(types, sos, eos)
         if verbose:
-            print_table("N1/N2", run_chars, before_n12, types, irs_label)
+            print_table("N1", run_chars, before_n1, types, irs_label)
+
+        # N2
+        if verbose:
+            before_n2 = list(types)
+        types = _apply_n2(types, level)
+        if verbose:
+            print_table("N2", run_chars, before_n2, types, irs_label)
 
         for j, i in enumerate(run_indices):
             chars[i].character_type = types[j]
