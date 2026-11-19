@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Conformance tests for bidi.py against BidiCharacterTest.txt (Unicode 15.1).
+Conformance tests for bidi.py against BidiCharacterTest.txt (Unicode 17.0.0).
 
 Usage:
     python run_bidi_tests.py [TEST_FILE] [--max-failures N] [--lines START-END] [--fail-fast]

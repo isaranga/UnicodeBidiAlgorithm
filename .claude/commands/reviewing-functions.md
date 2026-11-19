@@ -16,7 +16,7 @@ Parse `$ARGUMENTS`:
 ## Step 1 — Read the file
 
 1. Read `bidi.py` using the Read tool.
-2. Extract the ordered list of all top-level function definitions (lines matching `^def ` or `^    def `). Build an internal index: function name → start line → end line.
+2. Extract the ordered list of all top-level function definitions (lines matching `^def `). Build an internal index: function name → start line → end line.
 3. Identify the starting function: first in file order, the named argument, or "next" continuation.
 4. Announce: "Reviewing `<function_name>` (lines M–N)."
 
@@ -39,7 +39,7 @@ Work through the function body from the `def` statement through the last line be
 
 ### UAX#9 context for bidi.py
 
-The data model centers on `CharacterInfo` — `original_type` is immutable, `character_type` is the working copy mutated per phase. Phase-orchestrating functions call `get_isolating_run_sequences` and delegate to `_apply_*` helpers. `print_table` handles verbose output uniformly. Flag any divergence from these conventions.
+The data model centers on `CharacterInfo` — `original_type` is immutable, `character_type` is the working copy mutated per phase. Phase-orchestrating functions delegate to `_apply_*` helpers; the W and N phases (`apply_weak_rules`, `apply_neutral_rules`) also call `get_isolating_run_sequences`. `print_table` handles verbose output uniformly. Flag any divergence from these conventions.
 
 ## Step 3 — Produce the findings table
 
@@ -59,7 +59,7 @@ Severity levels:
 
 If the function is clean on all criteria, output a single row: criterion "all", severity "info", finding "No issues found."
 
-After the table, add a one-paragraph **Verdict** (3–5 sentences) summarising: overall quality, the most important finding (if any), and whether the function upholds the project's clarity-first philosophy.
+After the table, add a short one-paragraph **Verdict** summarising: overall quality, the most important finding (if any), and whether the function upholds the project's clarity-first philosophy.
 
 ## Step 4 — Offer to continue
 
