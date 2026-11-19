@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }}${{ matrix.required && '' || ' (informational)' }}
+    name: Python ${{ matrix.python-version }}${{ !matrix.required && ' (informational)' || '' }}
     runs-on: ubuntu-latest
 
     # Each Python release ships its own Unicode data in `unicodedata`, so older
