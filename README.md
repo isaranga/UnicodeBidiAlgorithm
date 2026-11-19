@@ -1,10 +1,10 @@
 # Unicode Bidirectional Algorithm in Python
 
-A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (UAX #9)](https://www.unicode.org/reports/tr9/), targeting Unicode 15.1.
+A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (UAX #9)](https://www.unicode.org/reports/tr9/), targeting Unicode 17.0.
 
 The bidi algorithm decides how text that mixes left-to-right scripts (Latin, Cyrillic, …) with right-to-left scripts (Hebrew, Arabic, …) is laid out on screen. This project is meant for **learning how that algorithm works**. It favours clarity over speed or brevity:
 
-- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library.
+- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library. The two Unicode data files it needs are kept, unchanged, in [ucd/](ucd/).
 - Each UAX #9 rule has its own function, named after the rule (`_apply_w1`, `_apply_n0`, `_apply_l2`, …), so you can read the code next to the spec.
 - A **verbose mode** prints a before/after table every time a rule is applied, so you can follow a string through the algorithm step by step.
 
@@ -85,15 +85,17 @@ Some things to know when reading the code:
 
 - **`CharacterInfo`** is the record passed through every phase. `original_type` is the character's Unicode bidi class and never changes; `character_type` is a working copy that the rules update.
 - **Isolating run sequences** (definition BD13) are what phases W and N work on. `get_isolating_run_sequences` builds them by linking runs of the same level across an isolate (LRI/RLI/FSI … PDI), and attaches the `sos`/`eos` types at each end.
-- **Bracket pairs** for rule N0 are found by `_find_bracket_pairs`, using tables taken from [BidiBrackets.txt](https://www.unicode.org/Public/15.1.0/ucd/BidiBrackets.txt) (Unicode 15.1).
+- **Bracket pairs** for rule N0 are found by `_find_bracket_pairs`, using pairs read from [ucd/BidiBrackets.txt](ucd/BidiBrackets.txt).
+- **Mirrored characters** for rule L4 are read from [ucd/BidiMirroring.txt](ucd/BidiMirroring.txt).
+- Both files are copied unchanged from the [Unicode Character Database](https://www.unicode.org/Public/17.0.0/ucd/) (currently Unicode 17.0.0). To update them, replace them with newer versions.
 
 ## Scope and caveats
 
 - The input is treated as a single paragraph; the algorithm does not split text at paragraph separators (rule P1).
 - Line breaking is not handled: the L rules treat the whole input as one line.
-- Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be newer than 15.1.
+- Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be older than 17.0 (for example, Python 3.14 uses Unicode 16.0). Characters added in later Unicode versions may then get the wrong bidi class.
 - Rule L3 (combining marks) takes no action. The spec leaves this to the renderer.
-- Rule L4 (mirroring, for example `(` → `)` in right-to-left text) only covers characters listed in the mirror table. Other mirrored characters are left for the renderer to handle.
+- Rule L4 (mirroring, for example `(` → `)` in right-to-left text) swaps the characters listed in BidiMirroring.txt. Some mirrored characters, such as `∛`, have no mirrored counterpart character, so drawing them mirrored is left to the renderer.
 
 ## Conformance tests
 

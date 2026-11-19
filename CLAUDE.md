@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 15.1. The entire implementation lives in a single file: [bidi.py](bidi.py).
+A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire implementation lives in a single file: [bidi.py](bidi.py). It reads two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). To update the data, replace these files; do not hand-copy their contents into code.
 
-No external dependencies — only Python stdlib (`unicodedata`, `dataclasses`).
+No external dependencies — only Python stdlib (`unicodedata`, `dataclasses`, `pathlib`).
 
 ## Design philosophy
 
@@ -71,7 +71,7 @@ Phases W and N operate on **isolating run sequences** (BD13), computed by `get_i
 
 The W and N phases each delegate to private per-rule helpers (`_apply_w1`…`_apply_w7`, `_apply_n0`, `_apply_n1`, `_apply_n2`). The L phase similarly delegates to `_apply_l1`…`_apply_l4`.
 
-Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_BRACKET_TO_CLOSE` / `CLOSE_BRACKET_TO_OPEN` tables derived from BidiBrackets.txt (Unicode 15.1).
+Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_BRACKET_TO_CLOSE` / `CLOSE_BRACKET_TO_OPEN` tables loaded at import time from `ucd/BidiBrackets.txt` by `load_bracket_pairs`. L4 mirroring uses `BIDI_MIRROR_TABLE`, loaded from `ucd/BidiMirroring.txt` by `load_mirror_pairs`. Both loaders share `read_ucd_file`.
 
 ### Verbose mode
 

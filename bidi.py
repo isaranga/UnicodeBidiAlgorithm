@@ -2,8 +2,9 @@
 Unicode Bidirectional Algorithm (UAX #9) implementation.
 
 Reference: https://www.unicode.org/reports/tr9/ (Unicode Standard Annex #9)
-Unicode version caveat: This implementation targets Unicode 15.1.
-  Bracket pairs are from BidiBrackets.txt (Unicode 15.1).
+Unicode version caveat: This implementation targets Unicode 17.0.
+  Bracket pairs and mirrored characters are read from BidiBrackets.txt and
+  BidiMirroring.txt in the ucd/ folder (currently Unicode 17.0.0).
   Character Bidi_Class values come from Python's unicodedata module,
   which reflects the Unicode version bundled with your Python build.
 
@@ -18,6 +19,7 @@ Demo:
 
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 
 # ============================================================
 # Data Model
@@ -50,199 +52,81 @@ EXPLICIT_EMBEDDING_TYPES = frozenset({'LRE', 'RLE', 'LRO', 'RLO'})
 X9_REMOVE_TYPES          = frozenset({'LRE', 'RLE', 'LRO', 'RLO', 'PDF', 'BN'})
 R_EQUIVALENT_TYPES       = frozenset({'R', 'AL', 'EN', 'AN'})
 
-# BidiBrackets.txt pairs (Unicode 15.1) - open -> close
-OPEN_BRACKET_TO_CLOSE = {
-    0x0028: 0x0029,  # LEFT PARENTHESIS
-    0x005B: 0x005D,  # LEFT SQUARE BRACKET
-    0x007B: 0x007D,  # LEFT CURLY BRACKET
-    0x0F3A: 0x0F3B,  # TIBETAN MARK GUG RTAGS GYON
-    0x0F3C: 0x0F3D,  # TIBETAN MARK ANG KHANG GYON
-    0x169B: 0x169C,  # OGHAM FEATHER MARK
-    0x2045: 0x2046,  # LEFT SQUARE BRACKET WITH QUILL
-    0x207D: 0x207E,  # SUPERSCRIPT LEFT PARENTHESIS
-    0x208D: 0x208E,  # SUBSCRIPT LEFT PARENTHESIS
-    0x2308: 0x2309,  # LEFT CEILING
-    0x230A: 0x230B,  # LEFT FLOOR
-    0x2329: 0x232A,  # LEFT-POINTING ANGLE BRACKET
-    0x2768: 0x2769,  # MEDIUM LEFT PARENTHESIS ORNAMENT
-    0x276A: 0x276B,  # MEDIUM FLATTENED LEFT PARENTHESIS ORNAMENT
-    0x276C: 0x276D,  # MEDIUM LEFT-POINTING ANGLE BRACKET ORNAMENT
-    0x276E: 0x276F,  # HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT
-    0x2770: 0x2771,  # HEAVY LEFT-POINTING ANGLE BRACKET ORNAMENT
-    0x2772: 0x2773,  # LIGHT LEFT TORTOISE SHELL BRACKET ORNAMENT
-    0x2774: 0x2775,  # MEDIUM LEFT CURLY BRACKET ORNAMENT
-    0x27C5: 0x27C6,  # LEFT S-SHAPED BAG DELIMITER
-    0x27E6: 0x27E7,  # MATHEMATICAL LEFT WHITE SQUARE BRACKET
-    0x27E8: 0x27E9,  # MATHEMATICAL LEFT ANGLE BRACKET
-    0x27EA: 0x27EB,  # MATHEMATICAL LEFT DOUBLE ANGLE BRACKET
-    0x27EC: 0x27ED,  # MATHEMATICAL LEFT WHITE TORTOISE SHELL BRACKET
-    0x27EE: 0x27EF,  # MATHEMATICAL LEFT FLATTENED PARENTHESIS
-    0x2983: 0x2984,  # LEFT WHITE CURLY BRACKET
-    0x2985: 0x2986,  # LEFT WHITE PARENTHESIS
-    0x2987: 0x2988,  # Z NOTATION LEFT IMAGE BRACKET
-    0x2989: 0x298A,  # Z NOTATION LEFT BINDING BRACKET
-    0x298B: 0x298C,  # LEFT SQUARE BRACKET WITH UNDERBAR
-    0x298D: 0x298E,  # LEFT SQUARE BRACKET WITH TICK IN TOP CORNER
-    0x298F: 0x2990,  # LEFT SQUARE BRACKET WITH TICK IN BOTTOM CORNER
-    0x2991: 0x2992,  # LEFT ANGLE BRACKET WITH DOT
-    0x2993: 0x2994,  # LEFT ARC LESS-THAN BRACKET
-    0x2995: 0x2996,  # DOUBLE LEFT ARC GREATER-THAN BRACKET
-    0x2997: 0x2998,  # LEFT BLACK TORTOISE SHELL BRACKET
-    0x29D8: 0x29D9,  # LEFT WIGGLY FENCE
-    0x29DA: 0x29DB,  # LEFT DOUBLE WIGGLY FENCE
-    0x29FC: 0x29FD,  # LEFT-POINTING CURVED ANGLE BRACKET
-    0x2E22: 0x2E23,  # TOP LEFT HALF BRACKET
-    0x2E24: 0x2E25,  # BOTTOM LEFT HALF BRACKET
-    0x2E26: 0x2E27,  # LEFT SIDEWAYS U BRACKET
-    0x2E28: 0x2E29,  # LEFT DOUBLE PARENTHESIS
-    0x2E42: 0x201E,  # DOUBLE LOW-REVERSED-9 QUOTATION MARK (special)
-    0x3008: 0x3009,  # LEFT ANGLE BRACKET
-    0x300A: 0x300B,  # LEFT DOUBLE ANGLE BRACKET
-    0x300C: 0x300D,  # LEFT CORNER BRACKET
-    0x300E: 0x300F,  # LEFT WHITE CORNER BRACKET
-    0x3010: 0x3011,  # LEFT BLACK LENTICULAR BRACKET
-    0x3014: 0x3015,  # LEFT TORTOISE SHELL BRACKET
-    0x3016: 0x3017,  # LEFT WHITE LENTICULAR BRACKET
-    0x3018: 0x3019,  # LEFT WHITE TORTOISE SHELL BRACKET
-    0x301A: 0x301B,  # LEFT WHITE SQUARE BRACKET
-    0xFD3E: 0xFD3F,  # ORNATE LEFT PARENTHESIS
-    0xFE59: 0xFE5A,  # SMALL LEFT PARENTHESIS
-    0xFE5B: 0xFE5C,  # SMALL LEFT CURLY BRACKET
-    0xFE5D: 0xFE5E,  # SMALL RIGHT TORTOISE SHELL BRACKET (error in spec? keep as-is)
-    0xFF08: 0xFF09,  # FULLWIDTH LEFT PARENTHESIS
-    0xFF3B: 0xFF3D,  # FULLWIDTH LEFT SQUARE BRACKET
-    0xFF5B: 0xFF5D,  # FULLWIDTH LEFT CURLY BRACKET
-    0xFF5F: 0xFF60,  # FULLWIDTH LEFT WHITE PARENTHESIS
-    0xFF62: 0xFF63,  # HALFWIDTH LEFT CORNER BRACKET
-}
-CLOSE_BRACKET_TO_OPEN = {v: k for k, v in OPEN_BRACKET_TO_CLOSE.items()}
 
-# BidiMirroring.txt subset - common pairs
-BIDI_MIRROR_TABLE = {
-    0x0028: 0x0029, 0x0029: 0x0028,  # parentheses
-    0x003C: 0x003E, 0x003E: 0x003C,  # < >
-    0x005B: 0x005D, 0x005D: 0x005B,  # [ ]
-    0x007B: 0x007D, 0x007D: 0x007B,  # { }
-    0x00AB: 0x00BB, 0x00BB: 0x00AB,  # << >>
-    0x2039: 0x203A, 0x203A: 0x2039,  # < >
-    0x2045: 0x2046, 0x2046: 0x2045,
-    0x207D: 0x207E, 0x207E: 0x207D,
-    0x208D: 0x208E, 0x208E: 0x208D,
-    0x2208: 0x220B, 0x220B: 0x2208,
-    0x2209: 0x220C, 0x220C: 0x2209,
-    0x220A: 0x220D, 0x220D: 0x220A,
-    0x2215: 0x29F5, 0x29F5: 0x2215,
-    0x223C: 0x223D, 0x223D: 0x223C,
-    0x2243: 0x22CD, 0x22CD: 0x2243,
-    0x2252: 0x2253, 0x2253: 0x2252,
-    0x2254: 0x2255, 0x2255: 0x2254,
-    0x2264: 0x2265, 0x2265: 0x2264,
-    0x2266: 0x2267, 0x2267: 0x2266,
-    0x2268: 0x2269, 0x2269: 0x2268,
-    0x226A: 0x226B, 0x226B: 0x226A,
-    0x226E: 0x226F, 0x226F: 0x226E,
-    0x2270: 0x2271, 0x2271: 0x2270,
-    0x2272: 0x2273, 0x2273: 0x2272,
-    0x2274: 0x2275, 0x2275: 0x2274,
-    0x2276: 0x2277, 0x2277: 0x2276,
-    0x2278: 0x2279, 0x2279: 0x2278,
-    0x227A: 0x227B, 0x227B: 0x227A,
-    0x227C: 0x227D, 0x227D: 0x227C,
-    0x227E: 0x227F, 0x227F: 0x227E,
-    0x2280: 0x2281, 0x2281: 0x2280,
-    0x2282: 0x2283, 0x2283: 0x2282,
-    0x2284: 0x2285, 0x2285: 0x2284,
-    0x2286: 0x2287, 0x2287: 0x2286,
-    0x2288: 0x2289, 0x2289: 0x2288,
-    0x228A: 0x228B, 0x228B: 0x228A,
-    0x228F: 0x2290, 0x2290: 0x228F,
-    0x2291: 0x2292, 0x2292: 0x2291,
-    0x2298: 0x29B8, 0x29B8: 0x2298,
-    0x22A2: 0x22A3, 0x22A3: 0x22A2,
-    0x22A6: 0x2ADE, 0x2ADE: 0x22A6,
-    0x22A8: 0x2AE4, 0x2AE4: 0x22A8,
-    0x22A9: 0x2AE3, 0x2AE3: 0x22A9,
-    0x22AB: 0x2AE5, 0x2AE5: 0x22AB,
-    0x22B0: 0x22B1, 0x22B1: 0x22B0,
-    0x22B2: 0x22B3, 0x22B3: 0x22B2,
-    0x22B4: 0x22B5, 0x22B5: 0x22B4,
-    0x22B6: 0x22B7, 0x22B7: 0x22B6,
-    0x22C9: 0x22CA, 0x22CA: 0x22C9,
-    0x22CB: 0x22CC, 0x22CC: 0x22CB,
-    0x22D0: 0x22D1, 0x22D1: 0x22D0,
-    0x22D6: 0x22D7, 0x22D7: 0x22D6,
-    0x22D8: 0x22D9, 0x22D9: 0x22D8,
-    0x22DA: 0x22DB, 0x22DB: 0x22DA,
-    0x22DC: 0x22DD, 0x22DD: 0x22DC,
-    0x22DE: 0x22DF, 0x22DF: 0x22DE,
-    0x22E0: 0x22E1, 0x22E1: 0x22E0,
-    0x22E2: 0x22E3, 0x22E3: 0x22E2,
-    0x22E4: 0x22E5, 0x22E5: 0x22E4,
-    0x22E6: 0x22E7, 0x22E7: 0x22E6,
-    0x22E8: 0x22E9, 0x22E9: 0x22E8,
-    0x22EA: 0x22EB, 0x22EB: 0x22EA,
-    0x22EC: 0x22ED, 0x22ED: 0x22EC,
-    0x22F0: 0x22F1, 0x22F1: 0x22F0,
-    0x22F2: 0x22FA, 0x22FA: 0x22F2,
-    0x22F3: 0x22FB, 0x22FB: 0x22F3,
-    0x22F4: 0x22FC, 0x22FC: 0x22F4,
-    0x22F6: 0x22FD, 0x22FD: 0x22F6,
-    0x22F7: 0x22FE, 0x22FE: 0x22F7,
-    0x2308: 0x2309, 0x2309: 0x2308,
-    0x230A: 0x230B, 0x230B: 0x230A,
-    0x2329: 0x232A, 0x232A: 0x2329,
-    0x2768: 0x2769, 0x2769: 0x2768,
-    0x276A: 0x276B, 0x276B: 0x276A,
-    0x276C: 0x276D, 0x276D: 0x276C,
-    0x276E: 0x276F, 0x276F: 0x276E,
-    0x2770: 0x2771, 0x2771: 0x2770,
-    0x2772: 0x2773, 0x2773: 0x2772,
-    0x2774: 0x2775, 0x2775: 0x2774,
-    0x27C3: 0x27C4, 0x27C4: 0x27C3,
-    0x27C5: 0x27C6, 0x27C6: 0x27C5,
-    0x27D5: 0x27D6, 0x27D6: 0x27D5,
-    0x27E6: 0x27E7, 0x27E7: 0x27E6,
-    0x27E8: 0x27E9, 0x27E9: 0x27E8,
-    0x27EA: 0x27EB, 0x27EB: 0x27EA,
-    0x27EC: 0x27ED, 0x27ED: 0x27EC,
-    0x27EE: 0x27EF, 0x27EF: 0x27EE,
-    0x2983: 0x2984, 0x2984: 0x2983,
-    0x2985: 0x2986, 0x2986: 0x2985,
-    0x2987: 0x2988, 0x2988: 0x2987,
-    0x2989: 0x298A, 0x298A: 0x2989,
-    0x298B: 0x298C, 0x298C: 0x298B,
-    0x298D: 0x298E, 0x298E: 0x298D,
-    0x298F: 0x2990, 0x2990: 0x298F,
-    0x2991: 0x2992, 0x2992: 0x2991,
-    0x2993: 0x2994, 0x2994: 0x2993,
-    0x2995: 0x2996, 0x2996: 0x2995,
-    0x2997: 0x2998, 0x2998: 0x2997,
-    0x29D8: 0x29D9, 0x29D9: 0x29D8,
-    0x29DA: 0x29DB, 0x29DB: 0x29DA,
-    0x29FC: 0x29FD, 0x29FD: 0x29FC,
-    0x2E22: 0x2E23, 0x2E23: 0x2E22,
-    0x2E24: 0x2E25, 0x2E25: 0x2E24,
-    0x2E26: 0x2E27, 0x2E27: 0x2E26,
-    0x2E28: 0x2E29, 0x2E29: 0x2E28,
-    0x3008: 0x3009, 0x3009: 0x3008,
-    0x300A: 0x300B, 0x300B: 0x300A,
-    0x300C: 0x300D, 0x300D: 0x300C,
-    0x300E: 0x300F, 0x300F: 0x300E,
-    0x3010: 0x3011, 0x3011: 0x3010,
-    0x3014: 0x3015, 0x3015: 0x3014,
-    0x3016: 0x3017, 0x3017: 0x3016,
-    0x3018: 0x3019, 0x3019: 0x3018,
-    0x301A: 0x301B, 0x301B: 0x301A,
-    0xFD3E: 0xFD3F, 0xFD3F: 0xFD3E,
-    0xFE59: 0xFE5A, 0xFE5A: 0xFE59,
-    0xFE5B: 0xFE5C, 0xFE5C: 0xFE5B,
-    0xFE5D: 0xFE5E, 0xFE5E: 0xFE5D,
-    0xFF08: 0xFF09, 0xFF09: 0xFF08,
-    0xFF3B: 0xFF3D, 0xFF3D: 0xFF3B,
-    0xFF5B: 0xFF5D, 0xFF5D: 0xFF5B,
-    0xFF5F: 0xFF60, 0xFF60: 0xFF5F,
-    0xFF62: 0xFF63, 0xFF63: 0xFF62,
-}
+# ============================================================
+# SECTION: Unicode Character Database (UCD) tables
+# ============================================================
+#
+# Two data files from the Unicode Character Database are kept, unchanged,
+# in the ucd/ folder next to this file:
+#
+#   BidiBrackets.txt  - which characters form bracket pairs (used by rule N0)
+#   BidiMirroring.txt - which character to show in place of a mirrored one (rule L4)
+#
+# To move to a newer Unicode version, replace both files with the ones from
+# https://www.unicode.org/Public/<version>/ucd/
+
+UCD_DIRECTORY = Path(__file__).parent / "ucd"
+
+
+def read_ucd_file(file_name: str) -> list[list[str]]:
+    """
+    Read a UCD data file and return its data lines, each split into fields.
+
+    UCD files share a simple format: fields are separated by ';', and
+    everything after '#' is a comment. Blank and comment-only lines are skipped.
+    For example, this line from BidiBrackets.txt:
+        0028; 0029; o # LEFT PARENTHESIS
+    becomes ['0028', '0029', 'o'].
+    """
+    rows = []
+    with open(UCD_DIRECTORY / file_name, encoding="utf-8") as ucd_file:
+        for line in ucd_file:
+            data = line.split("#")[0].strip()
+            if data == "":
+                continue
+            fields = []
+            for field in data.split(";"):
+                fields.append(field.strip())
+            rows.append(fields)
+    return rows
+
+
+def load_bracket_pairs() -> dict[int, int]:
+    """
+    Read BidiBrackets.txt and map each opening bracket to its closing bracket.
+
+    Each line has three fields: code point; paired bracket; type, where the
+    type is 'o' for an opening bracket and 'c' for a closing one.
+    Only the 'o' lines are kept: the closing-to-opening map is simply the
+    reverse of this one (see CLOSE_BRACKET_TO_OPEN below).
+    """
+    open_to_close = {}
+    for code_point, paired_bracket, bracket_type in read_ucd_file("BidiBrackets.txt"):
+        if bracket_type == "o":
+            open_to_close[int(code_point, 16)] = int(paired_bracket, 16)
+    return open_to_close
+
+
+def load_mirror_pairs() -> dict[int, int]:
+    """
+    Read BidiMirroring.txt and map each character to its mirrored counterpart.
+
+    Each line has two fields: code point; mirrored code point.
+    The file lists both directions of every pair (e.g. '(' -> ')' and
+    ')' -> '('), so no reversing is needed. Characters that have only an
+    approximate ("best fit") mirror appear in the file as comments only,
+    so they are not loaded.
+    """
+    mirrors = {}
+    for code_point, mirrored_code_point in read_ucd_file("BidiMirroring.txt"):
+        mirrors[int(code_point, 16)] = int(mirrored_code_point, 16)
+    return mirrors
+
+
+OPEN_BRACKET_TO_CLOSE = load_bracket_pairs()
+CLOSE_BRACKET_TO_OPEN = {v: k for k, v in OPEN_BRACKET_TO_CLOSE.items()}
+BIDI_MIRROR_TABLE     = load_mirror_pairs()
 
 
 # ============================================================
@@ -1340,12 +1224,13 @@ def _apply_l3(chars: list[CharacterInfo]) -> None:
 def _apply_l4(chars: list[CharacterInfo]) -> None:
     """
     L4: For each character at an odd (RTL) embedding level, replace it with
-    its mirrored form if one exists in BIDI_MIRROR_TABLE.
+    its mirrored form if one exists in BIDI_MIRROR_TABLE (BidiMirroring.txt).
 
     Mutates ci.character in place (the only L helper that modifies the glyph
-    itself rather than character_type or embedding_level).  Characters with
-    Bidi_Mirrored=Yes that have no entry in BIDI_MIRROR_TABLE are left
-    unchanged — their mirroring is the rendering engine's responsibility.
+    itself rather than character_type or embedding_level).  Some characters
+    with Bidi_Mirrored=Yes (e.g. U+221B CUBE ROOT) have no mirrored
+    counterpart character; they are left unchanged, and drawing their
+    mirrored glyph is the rendering engine's responsibility.
     """
     for ci in chars:
         if ci.embedding_level % 2 == 1:
