@@ -16,8 +16,6 @@ Demo:
     Runs built-in example strings through the full algorithm with verbose output.
 """
 
-from __future__ import annotations
-
 import unicodedata
 from dataclasses import dataclass
 
