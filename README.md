@@ -1,6 +1,6 @@
 # Unicode Bidirectional Algorithm in Python
 
-A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (UAX #9)](https://www.unicode.org/reports/tr9/), targeting Unicode 15.1.
+A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (UAX #9)](https://www.unicode.org/reports/tr9/), targeting Unicode 17.0.
 
 The bidi algorithm decides how text that mixes left-to-right scripts (Latin, Cyrillic, …) with right-to-left scripts (Hebrew, Arabic, …) is laid out on screen. This project is meant for **learning how that algorithm works**. It favours clarity over speed or brevity:
 
@@ -93,7 +93,7 @@ Some things to know when reading the code:
 
 - The input is treated as a single paragraph; the algorithm does not split text at paragraph separators (rule P1).
 - Line breaking is not handled: the L rules treat the whole input as one line.
-- Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be newer than 15.1.
+- Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be older than 17.0 (for example, Python 3.14 uses Unicode 16.0). Characters added in later Unicode versions may then get the wrong bidi class.
 - Rule L3 (combining marks) takes no action. The spec leaves this to the renderer.
 - Rule L4 (mirroring, for example `(` → `)` in right-to-left text) swaps the characters listed in BidiMirroring.txt. Some mirrored characters, such as `∛`, have no mirrored counterpart character, so drawing them mirrored is left to the renderer.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 15.1. The entire implementation lives in a single file: [bidi.py](bidi.py). It reads two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). To update the data, replace these files; do not hand-copy their contents into code.
+A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire implementation lives in a single file: [bidi.py](bidi.py). It reads two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). To update the data, replace these files; do not hand-copy their contents into code.
 
 No external dependencies — only Python stdlib (`unicodedata`, `dataclasses`, `pathlib`).
 

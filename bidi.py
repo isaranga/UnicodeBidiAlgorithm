@@ -2,7 +2,7 @@
 Unicode Bidirectional Algorithm (UAX #9) implementation.
 
 Reference: https://www.unicode.org/reports/tr9/ (Unicode Standard Annex #9)
-Unicode version caveat: This implementation targets Unicode 15.1.
+Unicode version caveat: This implementation targets Unicode 17.0.
   Bracket pairs and mirrored characters are read from BidiBrackets.txt and
   BidiMirroring.txt in the ucd/ folder (currently Unicode 17.0.0).
   Character Bidi_Class values come from Python's unicodedata module,
