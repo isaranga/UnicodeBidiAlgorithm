@@ -1,0 +1,43 @@
+name: Conformance tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}${{ matrix.required && '' || ' (informational)' }}
+    runs-on: ubuntu-latest
+
+    # Each Python release ships its own Unicode data in `unicodedata`, so older
+    # versions may fail tests written for newer Unicode. Only the newest Python
+    # must pass; the others run for information and never fail the workflow.
+    continue-on-error: ${{ !matrix.required }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        required: [false]
+        include:
+          - python-version: "3.15"
+            required: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Show Unicode data version
+        run: python -c "import sys, unicodedata; print(sys.version); print('Unicode', unicodedata.unidata_version)"
+
+      - name: BidiCharacterTest.txt
+        run: python tests/run_bidi_tests.py --max-failures 20
+
+      - name: BidiTest.txt
+        if: ${{ !cancelled() }}
+        run: python tests/run_bidi_type_tests.py --max-failures 20
