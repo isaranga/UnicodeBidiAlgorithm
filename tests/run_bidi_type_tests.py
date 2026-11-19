@@ -46,7 +46,8 @@ X9_TYPES = frozenset({"RLE", "LRE", "RLO", "LRO", "PDF", "BN"})
 # Pool sizes are set to cover the maximum repeat count of each type observed in BidiTest.txt
 # (e.g. L appears up to 14 times in one sequence, R up to 13, etc.).
 # Types with inherently few Unicode codepoints (B, S, ES, LRI/RLI/FSI/PDI) cannot be expanded
-# further; repeated occurrences of those types will still cause the reorder check to be skipped.
+# further, so repeated occurrences reuse characters. That is harmless: the reorder check
+# compares logical indices (visual_order), not characters.
 # X9 types have only one Unicode codepoint each, so their pool is size 1.
 TYPE_CHARS: dict[str, list[str]] = {
     'L':   list('ABCDEFGHIJKLMNOPQRST'),              # 20 chars; max repeat in file: 14
@@ -157,13 +158,13 @@ def parse_test_file(path: str, line_range: tuple[int, int] | None):
 _MODE_NAMES = {0: 'auto', 1: 'LTR', 2: 'RTL'}
 
 
-def run_test(tc: TestCase) -> tuple[bool, str, bool]:
-    """Run a single test case. Returns (passed, failure_description, reorder_skipped)."""
+def run_test(tc: TestCase) -> tuple[bool, str]:
+    """Run a single test case. Returns (passed, failure_description)."""
     text = build_text(tc.types)
     chars_repr = [repr(ch) for ch in text]
     forced_level = {0: None, 1: 0, 2: 1}[tc.para_mode]
     try:
-        logical_levels, reordered_text, _ = apply_bidi_algorithm(
+        logical_levels, reordered_text, _, visual_order = apply_bidi_algorithm(
             text, paragraph_embedding_level=forced_level
         )
     except Exception:
@@ -173,7 +174,7 @@ def run_test(tc: TestCase) -> tuple[bool, str, bool]:
             f"  chars={chars_repr}\n"
             f"  exception:\n"
             + "\n".join(f"    {line}" for line in tb.splitlines())
-        ), False
+        )
 
     # --- Sanity-check output lengths ---
     if len(logical_levels) != len(text):
@@ -181,39 +182,31 @@ def run_test(tc: TestCase) -> tuple[bool, str, bool]:
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
             f"logical_levels length {len(logical_levels)} != text length {len(text)}\n"
             f"  chars={chars_repr}"
-        ), False
+        )
     if len(reordered_text) != len(text):
         return False, (
             f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
             f"reordered_text length {len(reordered_text)} != text length {len(text)}\n"
             f"  chars={chars_repr}"
-        ), False
+        )
+    if len(visual_order) != len(text):
+        return False, (
+            f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | "
+            f"visual_order length {len(visual_order)} != text length {len(text)}\n"
+            f"  chars={chars_repr}"
+        )
 
     # --- Levels check ---
     actual_levels = [lvl for tp, lvl in zip(tc.types, logical_levels) if tp not in X9_TYPES]
     expected_levels_filtered = [l for l in tc.expected_levels if l is not None]
     levels_ok = actual_levels == expected_levels_filtered
 
-    # --- Reorder check (index tracking) ---
-    # build_text assigns distinct characters to each position for types with large enough pools.
-    # A few bidi types (LRI, RLI, FSI, PDI) have only one Unicode codepoint, so repeated
-    # occurrences produce duplicate characters. Index tracking is only reliable when every
-    # non-X9 character in the synthesized string is unique.
-    non_x9_chars = [ch for tp, ch in zip(tc.types, text) if tp not in X9_TYPES]
-    reorder_skipped = len(set(non_x9_chars)) != len(non_x9_chars)
-    if not reorder_skipped:
-        char_to_orig_idx = {ch: i for i, ch in enumerate(text)}
-        non_x9_reordered = [
-            ch for ch in reordered_text
-            if unicodedata.bidirectional(ch) not in X9_TYPES
-        ]
-        actual_reorder = [char_to_orig_idx[ch] for ch in non_x9_reordered]
-        reorder_ok = actual_reorder == tc.expected_reorder
-    else:
-        reorder_ok = True
+    # --- Reorder check (by logical index, so duplicate or mirrored characters don't matter) ---
+    actual_reorder = [i for i in visual_order if tc.types[i] not in X9_TYPES]
+    reorder_ok = actual_reorder == tc.expected_reorder
 
     if levels_ok and reorder_ok:
-        return True, '', reorder_skipped
+        return True, ''
 
     lines = [
         f"FAIL line {tc.line_number} | dir={_MODE_NAMES[tc.para_mode]} | types={tc.types}",
@@ -227,22 +220,19 @@ def run_test(tc: TestCase) -> tuple[bool, str, bool]:
         exp_str, act_str = _highlight_diff(tc.expected_reorder, actual_reorder)
         lines.append(f"  reorder  expected: {exp_str}")
         lines.append(f"           actual:   {act_str}")
-    return False, '\n'.join(lines), False
+    return False, '\n'.join(lines)
 
 
 def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, fail_fast: bool):
     passed = 0
     failed = 0
-    reorder_skipped = 0
     printed_failures = 0
     progress_interval = 5000
     processed = 0
 
     for tc in parse_test_file(path, line_range):
-        ok, description, skipped = run_test(tc)
+        ok, description = run_test(tc)
         processed += 1
-        if skipped:
-            reorder_skipped += 1
         if ok:
             passed += 1
         else:
@@ -261,8 +251,6 @@ def run_tests(path: str, max_failures: int, line_range: tuple[int, int] | None, 
     print(f"\nPassed: {passed}  Failed: {failed}  Total: {total}")
     if failed > printed_failures:
         print(f"  ... and {failed - printed_failures} more failures (increase --max-failures to see them)")
-    if reorder_skipped:
-        print(f"  (reorder check skipped for {reorder_skipped} tests)")
 
     sys.exit(0 if failed == 0 else 1)
 

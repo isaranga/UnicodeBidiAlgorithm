@@ -43,7 +43,7 @@ python bidi.py
 **Use as a library:**
 ```python
 from bidi import apply_bidi_algorithm
-levels, reordered, para_level = apply_bidi_algorithm("Hello שלום", verbose=False)
+levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello שלום", verbose=False)
 ```
 
 ## Architecture
@@ -79,7 +79,8 @@ Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the p
 
 ### Return value
 
-`apply_bidi_algorithm` returns `(logical_levels, reordered_text, paragraph_level)`:
+`apply_bidi_algorithm` returns `(logical_levels, reordered_text, paragraph_level, visual_order)`:
 - `logical_levels` — embedding levels captured after L1 resets (before L2–L4 reordering)
-- `reordered_text` — visually reordered string after all L rules
+- `reordered_text` — visually reordered string after all L rules, including L4 mirroring
 - `paragraph_level` — resolved paragraph embedding level (0 = LTR, 1 = RTL)
+- `visual_order` — logical index of the character at each visual position (`reordered_text[k]` comes from `text[visual_order[k]]`); the conformance runners compare this, not characters, so mirroring and duplicate characters don't affect the order check
