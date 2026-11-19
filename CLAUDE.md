@@ -23,7 +23,7 @@ When modifying code, keep this priority order: **clarity > correctness > perform
 
 The test files and their runners are verification tools used to check the correctness of `bidi.py` against the official Unicode test suite. They are **not** part of the educational project — readers do not need to read, run, or even know about them in order to understand the Unicode Bidirectional Algorithm.
 
-`tests/BidiCharacterTest.txt` (Unicode 15.1) tests the algorithm against real Unicode codepoints:
+`tests/BidiCharacterTest.txt` (Unicode 17.0.0) tests the algorithm against real Unicode codepoints:
 ```bash
 python tests/run_bidi_tests.py [--max-failures N] [--lines START-END] [--fail-fast]
 ```
@@ -35,7 +35,7 @@ python tests/run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fa
 
 ## Commands
 
-**Run the built-in demo** (five example strings with verbose output):
+**Run the built-in demo** (six example strings with verbose output):
 ```bash
 python bidi.py
 ```
@@ -69,17 +69,17 @@ levels, reordered, para_level = apply_bidi_algorithm("Hello שלום", verbose=F
 
 Phases W and N operate on **isolating run sequences** (BD13), computed by `get_isolating_run_sequences`. Each IRS chains contiguous level runs that are linked by isolate initiators (LRI/RLI/FSI) to their matching PDI, and carries `sos`/`eos` context types.
 
-The W and N phases each delegate to private per-rule helpers (`_apply_w1`…`_apply_w7`, `_apply_n0`, `_apply_n1_n2`). The L phase similarly delegates to `_apply_l1`…`_apply_l4`.
+The W and N phases each delegate to private per-rule helpers (`_apply_w1`…`_apply_w7`, `_apply_n0`, `_apply_n1`, `_apply_n2`). The L phase similarly delegates to `_apply_l1`…`_apply_l4`.
 
 Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_BRACKET_TO_CLOSE` / `CLOSE_BRACKET_TO_OPEN` tables derived from BidiBrackets.txt (Unicode 15.1).
 
 ### Verbose mode
 
-Every phase and rule function accepts `verbose=True`. When enabled, `print_table` prints a before/after table for each rule application, showing character index, character, type transition, and embedding level.
+Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the per-rule W, N and L helpers do not, and their phase function prints on their behalf. When enabled, `print_table` prints a before/after table for each rule application, showing character index, character, type transition, and embedding level.
 
 ### Return value
 
 `apply_bidi_algorithm` returns `(logical_levels, reordered_text, paragraph_level)`:
-- `logical_levels` — embedding levels captured after phase I (before L1 resets)
+- `logical_levels` — embedding levels captured after L1 resets (before L2–L4 reordering)
 - `reordered_text` — visually reordered string after all L rules
 - `paragraph_level` — resolved paragraph embedding level (0 = LTR, 1 = RTL)

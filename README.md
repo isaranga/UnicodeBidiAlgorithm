@@ -98,7 +98,7 @@ Some things to know when reading the code:
 
 The implementation is checked against the official Unicode test files. You don't need these to understand the algorithm, but they're there if you want to change the code:
 
-- [BidiCharacterTest.txt](https://www.unicode.org/Public/15.1.0/ucd/BidiCharacterTest.txt) (Unicode 15.1) tests real codepoints.
+- [BidiCharacterTest.txt](https://www.unicode.org/Public/17.0.0/ucd/BidiCharacterTest.txt) (Unicode 17.0.0) tests real codepoints.
 - [BidiTest.txt](https://www.unicode.org/Public/17.0.0/ucd/BidiTest.txt) (Unicode 17.0.0) tests abstract sequences of bidi types.
 
 ```bash
