@@ -25,7 +25,7 @@ This runs a set of example strings (pure LTR, pure RTL, mixed text with digits, 
 ```python
 from bidi import apply_bidi_algorithm
 
-levels, reordered, para_level = apply_bidi_algorithm("Hello שלום")
+levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello שלום")
 ```
 
 `apply_bidi_algorithm(text, verbose=False, paragraph_embedding_level=None)` returns a tuple:
@@ -33,8 +33,9 @@ levels, reordered, para_level = apply_bidi_algorithm("Hello שלום")
 | Value | Meaning |
 |-------|---------|
 | `levels` | The resolved embedding level of each character, in logical (input) order |
-| `reordered` | The text in visual (display) order |
+| `reordered` | The text in visual (display) order, with mirroring (rule L4) applied |
 | `para_level` | The paragraph embedding level: `0` = left-to-right, `1` = right-to-left |
+| `visual_order` | For each visual position, the index of the input character shown there |
 
 By default the paragraph direction is detected from the first strong character (rules P2–P3). Pass `paragraph_embedding_level=0` or `1` to force it.
 
@@ -92,7 +93,7 @@ Some things to know when reading the code:
 - Line breaking is not handled: the L rules treat the whole input as one line.
 - Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be newer than 15.1.
 - Rule L3 (combining marks) takes no action. The spec leaves this to the renderer.
-- Rule L4 (mirroring, for example `(` → `)` in right-to-left text) runs after the reordered string is built, so the returned `reordered` text is not mirrored. Verbose mode still shows what L4 would change.
+- Rule L4 (mirroring, for example `(` → `)` in right-to-left text) only covers characters listed in the mirror table. Other mirrored characters are left for the renderer to handle.
 
 ## Conformance tests
 

@@ -89,7 +89,7 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     """
     forced_level = None if tc.direction == 2 else tc.direction
     try:
-        logical_levels, reordered_text, actual_para_level = apply_bidi_algorithm(
+        logical_levels, reordered_text, actual_para_level, visual_order = apply_bidi_algorithm(
             tc.text, paragraph_embedding_level=forced_level
         )
     except Exception:
@@ -112,6 +112,11 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
             f"FAIL line {tc.line_number} | dir={tc.direction} | "
             f"reordered_text length {len(reordered_text)} != text length {len(tc.text)}"
         )
+    if len(visual_order) != len(tc.text):
+        return False, (
+            f"FAIL line {tc.line_number} | dir={tc.direction} | "
+            f"visual_order length {len(visual_order)} != text length {len(tc.text)}"
+        )
 
     actual_levels = [
         level
@@ -125,14 +130,13 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
     # --- Compare paragraph level (only meaningful for auto-detect) ---
     para_level_ok = actual_para_level == tc.para_level
 
-    # --- Compare visual order ---
-    actual_visual_chars = [
-        ch for ch in reordered_text
-        if unicodedata.bidirectional(ch) not in X9_TYPES
+    # --- Compare visual order (by logical index, so L4 mirroring doesn't matter) ---
+    actual_order = [
+        i for i in visual_order
+        if unicodedata.bidirectional(tc.text[i]) not in X9_TYPES
     ]
-    expected_visual_chars = [tc.text[i] for i in tc.expected_order]
 
-    order_ok = actual_visual_chars == expected_visual_chars
+    order_ok = actual_order == tc.expected_order
 
     if levels_ok and order_ok and para_level_ok:
         return True, ""
@@ -146,12 +150,9 @@ def run_test(tc: TestCase) -> tuple[bool, str]:
         lines.append(f"  levels   expected: {exp_str}")
         lines.append(f"           actual:   {act_str}")
     if not order_ok:
-        exp_cps = [f"{ord(c):04X}" for c in expected_visual_chars]
-        act_cps = [f"{ord(c):04X}" for c in actual_visual_chars]
-        exp_str, act_str = _highlight_diff(exp_cps, act_cps)
-        lines.append(f"  order    expected indices: {tc.expected_order}")
-        lines.append(f"           expected chars:   {exp_str}")
-        lines.append(f"           actual chars:     {act_str}")
+        exp_str, act_str = _highlight_diff(tc.expected_order, actual_order)
+        lines.append(f"  order    expected indices: {exp_str}")
+        lines.append(f"           actual indices:   {act_str}")
     return False, "\n".join(lines)
 
 

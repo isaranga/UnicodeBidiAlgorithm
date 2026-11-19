@@ -9,7 +9,7 @@ Unicode version caveat: This implementation targets Unicode 15.1.
 
 Usage:
     from bidi import apply_bidi_algorithm
-    levels, reordered, para_level = apply_bidi_algorithm("Hello עולם", verbose=False)
+    levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello עולם", verbose=False)
 
 Demo:
     python bidi.py
@@ -1356,8 +1356,18 @@ def _apply_l4(chars: list[CharacterInfo]) -> None:
                 ci.character = chr(BIDI_MIRROR_TABLE[cp])
 
 
-def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> str:
-    """L2-L4: Apply visual reordering (L1 must be applied before calling)."""
+def apply_reorder_rules(
+    chars: list[CharacterInfo], verbose: bool = False
+) -> tuple[str, list[int]]:
+    """
+    L2-L4: Apply visual reordering (L1 must be applied before calling).
+
+    Returns:
+        (reordered_text, visual_order)
+        reordered_text: the characters in visual order, with L4 mirroring applied
+        visual_order: for each visual position, the logical index of the
+            character shown there
+    """
     if verbose:
         before_order = [str(ci.index) for ci in chars]
     _apply_l2(chars)
@@ -1368,8 +1378,6 @@ def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> st
 
     _apply_l3(chars)
 
-    reordered_text = ''.join(ci.character for ci in chars)
-
     if verbose:
         before_chars = [ci.character for ci in chars]
     _apply_l4(chars)
@@ -1378,7 +1386,13 @@ def apply_reorder_rules(chars: list[CharacterInfo], verbose: bool = False) -> st
         print("=== After L4: Mirror ===")
         print_table("L4", chars, before_chars, after_chars)
 
-    return reordered_text
+    # The list is now in visual order.  Each CharacterInfo still remembers
+    # its logical position in ci.index, so we can report both the displayed
+    # text (including mirrored glyphs) and where each character came from.
+    reordered_text = ''.join(ci.character for ci in chars)
+    visual_order = [ci.index for ci in chars]
+
+    return reordered_text, visual_order
 
 
 # ============================================================
@@ -1389,7 +1403,7 @@ def apply_bidi_algorithm(
     text: str,
     verbose: bool = False,
     paragraph_embedding_level: int | None = None,
-) -> tuple[list[int], str, int]:
+) -> tuple[list[int], str, int, list[int]]:
     """
     Apply the Unicode Bidirectional Algorithm (UAX #9) to text.
 
@@ -1398,13 +1412,19 @@ def apply_bidi_algorithm(
             embedding level instead of running the P2/P3 auto-detection rules.
 
     Returns:
-        (logical_levels, reordered_text, paragraph_level)
+        (logical_levels, reordered_text, paragraph_level, visual_order)
         logical_levels: resolved embedding levels in logical (input) order, after L1 resets
-        reordered_text: visually reordered string
+        reordered_text: visually reordered string, with L4 mirroring applied
         paragraph_level: resolved paragraph embedding level (0=LTR, 1=RTL)
+        visual_order: for each visual position, the logical index of the
+            character shown there (so reordered_text[k] comes from text[visual_order[k]])
     """
     if not text:
-        return [], '', paragraph_embedding_level if paragraph_embedding_level is not None else 0
+        if paragraph_embedding_level is not None:
+            empty_level = paragraph_embedding_level
+        else:
+            empty_level = 0
+        return [], '', empty_level, []
 
     # Initialize CharacterInfo for each character
     chars = []
@@ -1451,9 +1471,9 @@ def apply_bidi_algorithm(
         print_table("L1", chars, before_levels, after_levels)
     logical_levels = [ci.embedding_level for ci in chars]
 
-    reordered_text = apply_reorder_rules(chars, verbose=verbose)
+    reordered_text, visual_order = apply_reorder_rules(chars, verbose=verbose)
 
-    return logical_levels, reordered_text, paragraph_level
+    return logical_levels, reordered_text, paragraph_level, visual_order
 
 
 # ============================================================
@@ -1475,8 +1495,9 @@ if __name__ == '__main__':
         print(f"Example: {description}")
         print(f"Input: {repr(text)}")
         print()
-        levels, reordered, _para_level = apply_bidi_algorithm(text, verbose=True)
-        print(f"Paragraph level:  {_para_level}")
+        levels, reordered, para_level, visual_order = apply_bidi_algorithm(text, verbose=True)
+        print(f"Paragraph level:  {para_level}")
         print(f"Embedding levels: {levels}")
+        print(f"Visual order:     {visual_order}")
         print(f"Reordered text:   {repr(reordered)}")
         print()
