@@ -10,7 +10,7 @@ The bidi algorithm decides how text that mixes left-to-right scripts (Latin, Cyr
 
 ## Quick start
 
-Requires Python 3 (developed with 3.13). No installation is needed:
+Requires Python 3.10+ (developed with 3.13). No installation is needed:
 
 ```bash
 git clone <this repo>
