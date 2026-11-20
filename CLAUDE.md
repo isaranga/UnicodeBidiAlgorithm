@@ -75,7 +75,9 @@ Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_B
 
 ### Verbose mode
 
-Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the per-rule W, N and L helpers do not, and their phase function prints on their behalf. When enabled, `print_table` prints a before/after table for each rule application, showing character index, character, type transition, and embedding level.
+Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the per-rule W, N and L helpers do not, and their phase function prints on their behalf. When enabled, `print_table` prints a before/after table for each rule application, with rows for character index, code point, the character itself, the type (or level, or position) before and after the rule, and embedding level. Columns are always in logical order, including the L2 and L4 tables, where Before/After give each character's position before and after reordering.
+
+Characters in table cells go through `format_char_for_table`: controls and whitespace are left blank, combining marks are shown on a dotted circle, and each R/AL character is followed by an invisible LEFT-TO-RIGHT MARK so that bidi-aware viewers (Markdown previews, GitHub) don't reverse runs of the row. Cells are sized and centered by `display_width`/`center_in_column`, not `len()`, because those marks take no column on screen. The tracing example in README.md is copied from real output (LRMs included); update it whenever the table format changes.
 
 ### Return value
 
