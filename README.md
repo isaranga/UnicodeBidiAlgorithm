@@ -41,7 +41,7 @@ By default the paragraph direction is detected from the first strong character (
 
 ## Tracing the algorithm
 
-Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, the character, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal.
+Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, its code point, the character itself, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal.
 
 ```python
 apply_bidi_algorithm("שלום 123 Hi", verbose=True)
@@ -51,18 +51,20 @@ apply_bidi_algorithm("שלום 123 Hi", verbose=True)
 === Phase P: Paragraph Embedding Level = 1 ===
 ...
 --- Rule N1 | IRS level=1 ---
-Idx      |   0    |   1    |   2    |   3    |  4  |  5  |  6  |  7  |  8  |  9  | 10  |
-Char     | U+05E9 | U+05DC | U+05D5 | U+05DD |     |  1  |  2  |  3  |     |  H  |  i  |
-Before   |   R    |   R    |   R    |   R    | WS  | EN  | EN  | EN  | WS  |  L  |  L  |
-After    |   R    |   R    |   R    |   R    |  R  | EN  | EN  | EN  | WS  |  L  |  L  |
-Level    |   1    |   1    |   1    |   1    |  1  |  1  |  1  |  1  |  1  |  1  |  1  |
+Index     |  0   |  1   |  2   |  3   |  4   |  5   |  6   |  7   |  8   |  9   |  10  |
+Codepoint | 05E9 | 05DC | 05D5 | 05DD | 0020 | 0031 | 0032 | 0033 | 0020 | 0048 | 0069 |
+Character |  ש‎   |  ל‎   |  ו‎   |  ם‎   |      |  1   |  2   |  3   |      |  H   |  i   |
+Before    |  R   |  R   |  R   |  R   |  WS  |  EN  |  EN  |  EN  |  WS  |  L   |  L   |
+After     |  R   |  R   |  R   |  R   |  R   |  EN  |  EN  |  EN  |  WS  |  L   |  L   |
+Level     |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |
 ...
 --- Rule I2 ---
-Idx      |   0    |   1    |   2    |   3    |  4  |  5  |  6  |  7  |  8  |  9  | 10  |
-Char     | U+05E9 | U+05DC | U+05D5 | U+05DD |     |  1  |  2  |  3  |     |  H  |  i  |
-Before   |   1    |   1    |   1    |   1    |  1  |  1  |  1  |  1  |  1  |  1  |  1  |
-After    |   1    |   1    |   1    |   1    |  1  |  2  |  2  |  2  |  1  |  2  |  2  |
-Level    |   1    |   1    |   1    |   1    |  1  |  2  |  2  |  2  |  1  |  2  |  2  |
+Index     |  0   |  1   |  2   |  3   |  4   |  5   |  6   |  7   |  8   |  9   |  10  |
+Codepoint | 05E9 | 05DC | 05D5 | 05DD | 0020 | 0031 | 0032 | 0033 | 0020 | 0048 | 0069 |
+Character |  ש‎   |  ל‎   |  ו‎   |  ם‎   |      |  1   |  2   |  3   |      |  H   |  i   |
+Before    |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |  1   |
+After     |  1   |  1   |  1   |  1   |  1   |  2   |  2   |  2   |  1   |  2   |  2   |
+Level     |  1   |  1   |  1   |  1   |  1   |  2   |  2   |  2   |  1   |  2   |  2   |
 ...
 ```
 
