@@ -336,17 +336,20 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
                 len(before_cells[j]), len(after_cells[j]), len(level_cells[j]))
         col_widths.append(w)
 
+    # Wide enough for the longest row labels, "Codepoint" and "Character".
+    label_width = 9
+
     def fmt_row(label, cells):
-        row = f"{label:<8} |"
+        row = f"{label:<{label_width}} |"
         for j, cell in enumerate(cells):
             row += f" {cell:^{col_widths[j]}} |"
         return row
 
     print(fmt_row("Index", idx_cells))
-    print(fmt_row("Unicode", codepoint_cells))
-    # The Char row is padded by hand: a dotted circle plus a combining mark is
-    # two code points but occupies a single column on screen.
-    char_row = "Char     |"
+    print(fmt_row("Codepoint", codepoint_cells))
+    # The Character row is padded by hand: a dotted circle plus a combining
+    # mark is two code points but occupies a single column on screen.
+    char_row = f"{'Character':<{label_width}} |"
     for j, cell in enumerate(char_cells):
         display_width = 1 if cell else 0
         left_pad = (col_widths[j] - display_width) // 2
@@ -354,7 +357,7 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
         char_row += " " + " " * left_pad + cell + " " * right_pad + " |"
     print(char_row)
     print(fmt_row("Before", before_cells))
-    after_row = "After    |"
+    after_row = f"{'After':<{label_width}} |"
     for j, cell in enumerate(after_cells):
         padded = f"{cell:^{col_widths[j]}}"
         if after_changed[j]:
