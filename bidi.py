@@ -281,6 +281,58 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
     return sequences
 
 
+LEFT_TO_RIGHT_MARK = '‎'
+
+
+def format_char_for_table(ch: str) -> str:
+    """
+    Return how a single character is shown in a cell of a verbose table.
+
+    - Control and formatting characters (e.g. RLE, PDI) and whitespace have
+      no useful visible form, so the cell is left blank; the Codepoint row
+      still identifies them.
+    - A combining mark would attach to the padding space before it, so it is
+      shown on a dotted circle, as the Unicode code charts do.
+    - A right-to-left character (bidi type R or AL) is followed by an
+      invisible LEFT-TO-RIGHT MARK.  Without it, a viewer that applies the
+      bidi algorithm itself (a Markdown preview, a web page, some terminals)
+      would treat the spaces and "|" between neighbouring RTL characters as
+      RTL too (rule N1) and display the whole stretch of the row reversed.
+    """
+    if not ch.isprintable() or ch.isspace():
+        return ''
+    if unicodedata.category(ch).startswith('M'):
+        return '◌' + ch
+    if unicodedata.bidirectional(ch) in ('R', 'AL'):
+        return ch + LEFT_TO_RIGHT_MARK
+    return ch
+
+
+def display_width(text: str) -> int:
+    """
+    Return the number of terminal columns text occupies.
+
+    Combining marks (category Mn, Me) and formatting characters such as the
+    LEFT-TO-RIGHT MARK (category Cf) take up no column of their own, so
+    len(text) would overcount them.
+    """
+    width = 0
+    for ch in text:
+        if unicodedata.category(ch) not in ('Mn', 'Me', 'Cf'):
+            width += 1
+    return width
+
+
+def center_in_column(text: str, column_width: int) -> str:
+    """
+    Center text in a column, padding by display width instead of len().
+    """
+    padding = column_width - display_width(text)
+    left_padding = padding // 2
+    right_padding = padding - left_padding
+    return ' ' * left_padding + text + ' ' * right_padding
+
+
 def print_table(rule_name: str, chars: list[CharacterInfo],
                 types_before: list[str], types_after: list[str],
                 irs_label: str = '') -> None:
@@ -311,19 +363,7 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
     # Build cell values for each column
     idx_cells = [str(ci.index) for ci in chars]
     codepoint_cells = [f"{ord(ci.character):04X}" for ci in chars]
-    char_cells = []
-    for ci in chars:
-        ch = ci.character
-        if not ch.isprintable() or ch.isspace():
-            # Control and formatting characters (e.g. RLE, PDI) and whitespace
-            # have no useful visible form; the Unicode row identifies them.
-            char_cells.append('')
-        elif unicodedata.category(ch).startswith('M'):
-            # A combining mark would attach to the padding space before it,
-            # so show it on a dotted circle, as the Unicode charts do.
-            char_cells.append('◌' + ch)
-        else:
-            char_cells.append(ch)
+    char_cells = [format_char_for_table(ci.character) for ci in chars]
     before_cells = list(types_before)
     after_cells = list(types_after)
     after_changed = [b != a for b, a in zip(types_before, types_after)]
@@ -332,8 +372,12 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
     # Compute column widths
     col_widths = []
     for j in range(len(chars)):
-        w = max(3, len(idx_cells[j]), len(codepoint_cells[j]),
-                len(before_cells[j]), len(after_cells[j]), len(level_cells[j]))
+        w = max(3,
+                display_width(idx_cells[j]),
+                display_width(codepoint_cells[j]),
+                display_width(before_cells[j]),
+                display_width(after_cells[j]),
+                display_width(level_cells[j]))
         col_widths.append(w)
 
     # Wide enough for the longest row labels, "Codepoint" and "Character".
@@ -342,24 +386,16 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
     def fmt_row(label, cells):
         row = f"{label:<{label_width}} |"
         for j, cell in enumerate(cells):
-            row += f" {cell:^{col_widths[j]}} |"
+            row += f" {center_in_column(cell, col_widths[j])} |"
         return row
 
     print(fmt_row("Index", idx_cells))
     print(fmt_row("Codepoint", codepoint_cells))
-    # The Character row is padded by hand: a dotted circle plus a combining
-    # mark is two code points but occupies a single column on screen.
-    char_row = f"{'Character':<{label_width}} |"
-    for j, cell in enumerate(char_cells):
-        display_width = 1 if cell else 0
-        left_pad = (col_widths[j] - display_width) // 2
-        right_pad = col_widths[j] - display_width - left_pad
-        char_row += " " + " " * left_pad + cell + " " * right_pad + " |"
-    print(char_row)
+    print(fmt_row("Character", char_cells))
     print(fmt_row("Before", before_cells))
     after_row = f"{'After':<{label_width}} |"
     for j, cell in enumerate(after_cells):
-        padded = f"{cell:^{col_widths[j]}}"
+        padded = center_in_column(cell, col_widths[j])
         if after_changed[j]:
             after_row += f" {BOLD_YELLOW}{padded}{RESET} |"
         else:
@@ -1293,10 +1329,12 @@ def apply_reorder_rules(
     _apply_l3(chars)
 
     if verbose:
-        before_chars = [ci.character for ci in logical_chars]
+        before_chars = [format_char_for_table(ci.character)
+                        for ci in logical_chars]
     _apply_l4(chars)
     if verbose:
-        after_chars = [ci.character for ci in logical_chars]
+        after_chars = [format_char_for_table(ci.character)
+                       for ci in logical_chars]
         print("=== After L4: Mirror ===")
         print_table("L4", logical_chars, before_chars, after_chars)
 
