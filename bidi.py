@@ -310,13 +310,20 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
 
     # Build cell values for each column
     idx_cells = [str(ci.index) for ci in chars]
+    codepoint_cells = [f"{ord(ci.character):04X}" for ci in chars]
     char_cells = []
     for ci in chars:
         ch = ci.character
-        if ch.isprintable() and ord(ch) < 128:
-            char_cells.append(ch)
+        if not ch.isprintable() or ch.isspace():
+            # Control and formatting characters (e.g. RLE, PDI) and whitespace
+            # have no useful visible form; the Unicode row identifies them.
+            char_cells.append('')
+        elif unicodedata.category(ch).startswith('M'):
+            # A combining mark would attach to the padding space before it,
+            # so show it on a dotted circle, as the Unicode charts do.
+            char_cells.append('◌' + ch)
         else:
-            char_cells.append(f"U+{ord(ch):04X}")
+            char_cells.append(ch)
     before_cells = list(types_before)
     after_cells = list(types_after)
     after_changed = [b != a for b, a in zip(types_before, types_after)]
@@ -325,20 +332,32 @@ def print_table(rule_name: str, chars: list[CharacterInfo],
     # Compute column widths
     col_widths = []
     for j in range(len(chars)):
-        w = max(3, len(idx_cells[j]), len(char_cells[j]),
+        w = max(3, len(idx_cells[j]), len(codepoint_cells[j]),
                 len(before_cells[j]), len(after_cells[j]), len(level_cells[j]))
         col_widths.append(w)
 
+    # Wide enough for the longest row labels, "Codepoint" and "Character".
+    label_width = 9
+
     def fmt_row(label, cells):
-        row = f"{label:<8} |"
+        row = f"{label:<{label_width}} |"
         for j, cell in enumerate(cells):
             row += f" {cell:^{col_widths[j]}} |"
         return row
 
-    print(fmt_row("Idx", idx_cells))
-    print(fmt_row("Char", char_cells))
+    print(fmt_row("Index", idx_cells))
+    print(fmt_row("Codepoint", codepoint_cells))
+    # The Character row is padded by hand: a dotted circle plus a combining
+    # mark is two code points but occupies a single column on screen.
+    char_row = f"{'Character':<{label_width}} |"
+    for j, cell in enumerate(char_cells):
+        display_width = 1 if cell else 0
+        left_pad = (col_widths[j] - display_width) // 2
+        right_pad = col_widths[j] - display_width - left_pad
+        char_row += " " + " " * left_pad + cell + " " * right_pad + " |"
+    print(char_row)
     print(fmt_row("Before", before_cells))
-    after_row = "After    |"
+    after_row = f"{'After':<{label_width}} |"
     for j, cell in enumerate(after_cells):
         padded = f"{cell:^{col_widths[j]}}"
         if after_changed[j]:
@@ -1251,23 +1270,35 @@ def apply_reorder_rules(
         visual_order: for each visual position, the logical index of the
             character shown there
     """
-    if verbose:
-        before_order = [str(ci.index) for ci in chars]
+    # L2 rearranges the list itself.  The verbose tables keep showing the
+    # characters in their original (logical) order, like every other table,
+    # so keep a copy of the list as it is now.
+    logical_chars = list(chars)
+
     _apply_l2(chars)
     if verbose:
-        after_order = [str(ci.index) for ci in chars]
+        # For each character, report its position before L2 (its logical
+        # index) and its position after L2 (where it is displayed).
+        visual_position_of = {}
+        for position, ci in enumerate(chars):
+            visual_position_of[ci.index] = position
+        before_positions = []
+        after_positions = []
+        for ci in logical_chars:
+            before_positions.append(str(ci.index))
+            after_positions.append(str(visual_position_of[ci.index]))
         print("=== After L2: Visual Reorder ===")
-        print_table("L2", chars, before_order, after_order)
+        print_table("L2", logical_chars, before_positions, after_positions)
 
     _apply_l3(chars)
 
     if verbose:
-        before_chars = [ci.character for ci in chars]
+        before_chars = [ci.character for ci in logical_chars]
     _apply_l4(chars)
     if verbose:
-        after_chars = [ci.character for ci in chars]
+        after_chars = [ci.character for ci in logical_chars]
         print("=== After L4: Mirror ===")
-        print_table("L4", chars, before_chars, after_chars)
+        print_table("L4", logical_chars, before_chars, after_chars)
 
     # The list is now in visual order.  Each CharacterInfo still remembers
     # its logical position in ci.index, so we can report both the displayed
