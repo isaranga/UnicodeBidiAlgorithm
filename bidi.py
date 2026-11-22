@@ -284,6 +284,12 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
 # ============================================================
 # SECTION: P rules
 # ============================================================
+#
+# Rule P1 (split the text into paragraphs at each paragraph separator,
+# type B) is not implemented. The input is assumed to be a single
+# paragraph, so the whole text goes through the rest of the algorithm
+# as one unit. To handle text with several paragraphs, split it at its
+# paragraph separators first and call apply_bidi_algorithm on each part.
 
 def determine_paragraph_embedding_level(chars: list[CharacterInfo], verbose: bool = False) -> int:
     """
