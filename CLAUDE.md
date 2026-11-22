@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire algorithm lives in a single file: [bidi.py](bidi.py). The tables printed in verbose mode are formatted by [verbose_table.py](verbose_table.py), which holds no algorithm logic. `bidi.py` reads two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). To update the data, replace these files; do not hand-copy their contents into code.
+A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire algorithm lives in a single file: [bidi.py](bidi.py). The tables printed in verbose mode are formatted by [verbose_table.py](verbose_table.py), which holds no algorithm logic. The algorithm uses lookup tables built from two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). They are read by [ucd_data.py](ucd_data.py), which also holds no algorithm logic. To update the data, replace these files; do not hand-copy their contents into code.
 
 No external dependencies — only Python stdlib (`unicodedata`, `dataclasses`, `pathlib`).
 
@@ -71,7 +71,7 @@ Phases W and N operate on **isolating run sequences** (BD13), computed by `get_i
 
 The W and N phases each delegate to private per-rule helpers (`_apply_w1`…`_apply_w7`, `_apply_n0`, `_apply_n1`, `_apply_n2`). The L phase similarly delegates to `_apply_l1`…`_apply_l4`.
 
-Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_BRACKET_TO_CLOSE` / `CLOSE_BRACKET_TO_OPEN` tables loaded at import time from `ucd/BidiBrackets.txt` by `load_bracket_pairs`. L4 mirroring uses `BIDI_MIRROR_TABLE`, loaded from `ucd/BidiMirroring.txt` by `load_mirror_pairs`. Both loaders share `read_ucd_file`.
+Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_BRACKET_TO_CLOSE` / `CLOSE_BRACKET_TO_OPEN` tables. L4 mirroring uses `BIDI_MIRROR_TABLE`. All three tables are imported from `ucd_data.py`, which builds them at import time: `load_bracket_pairs` reads `ucd/BidiBrackets.txt` and `load_mirror_pairs` reads `ucd/BidiMirroring.txt`, both through `read_ucd_file`. A comment above the import in `bidi.py` describes the tables and the rules that use them.
 
 ### Verbose mode
 

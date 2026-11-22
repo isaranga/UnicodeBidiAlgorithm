@@ -4,7 +4,7 @@ A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (
 
 The bidi algorithm decides how text that mixes left-to-right scripts (Latin, Cyrillic, …) with right-to-left scripts (Hebrew, Arabic, …) is laid out on screen. This project is meant for **learning how that algorithm works**. It favours clarity over speed or brevity:
 
-- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library. The two Unicode data files it needs are kept, unchanged, in [ucd/](ucd/). The tables printed in verbose mode are formatted separately, in [verbose_table.py](verbose_table.py), so that formatting code doesn't clutter the algorithm.
+- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library. The two Unicode data files it needs are kept, unchanged, in [ucd/](ucd/), and are read by [ucd_data.py](ucd_data.py). The tables printed in verbose mode are formatted separately, in [verbose_table.py](verbose_table.py). Neither file holds any algorithm logic; they are kept apart so that file reading and formatting code don't clutter the algorithm.
 - Each UAX #9 rule has its own function, named after the rule (`_apply_w1`, `_apply_n0`, `_apply_l2`, …), so you can read the code next to the spec.
 - A **verbose mode** prints a before/after table every time a rule is applied, so you can follow a string through the algorithm step by step.
 
