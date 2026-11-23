@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire algorithm lives in a single file: [bidi.py](bidi.py). The tables printed in verbose mode are formatted by [verbose_table.py](verbose_table.py), which holds no algorithm logic. The algorithm uses lookup tables built from two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). They are read by [ucd_data.py](ucd_data.py), which also holds no algorithm logic. To update the data, replace these files; do not hand-copy their contents into code.
+A pure-Python implementation of the Unicode Bidirectional Algorithm (UAX #9), targeting Unicode 17.0. The entire algorithm lives in a single file: [bidi.py](bidi.py). The tables printed in verbose mode are formatted by [verbose_table.py](verbose_table.py), which holds no algorithm logic. The algorithm uses lookup tables built from two Unicode Character Database files, kept unchanged in [ucd/](ucd/): `BidiBrackets.txt` and `BidiMirroring.txt` (currently Unicode 17.0.0). They are read by [ucd_data.py](ucd_data.py), which also holds no algorithm logic. The command-line demo lives in [demo.py](demo.py), again with no algorithm logic; the `__main__` block of `bidi.py` only calls `demo.main()`. To update the data, replace these files; do not hand-copy their contents into code.
 
 No external dependencies — only Python stdlib (`unicodedata`, `dataclasses`, `pathlib`).
 
@@ -35,10 +35,15 @@ python tests/run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fa
 
 ## Commands
 
-**Run the built-in demo** (six example strings with verbose output):
+**Run the demo** (`demo.py`, reached through `bidi.py`):
 ```bash
-python bidi.py
+python bidi.py                     # list the six built-in examples and usage hints
+python bidi.py --all               # run every example with verbose output
+python bidi.py --example N         # run one example
+python bidi.py "text"              # run your own text
+python bidi.py --file PATH         # run the text in a UTF-8 file
 ```
+Every mode accepts `--brief` (results only, no tables) and `--direction {auto,ltr,rtl}` (passed as `paragraph_embedding_level`). User text (argument or file) and the built-in `EXAMPLES` may contain `[LRI]`-style tags for the bidi controls and `\uXXXX` / `\UXXXXXXXX` escapes; `expand_escapes_and_tags` turns them into characters before the text is run. Write controls in `EXAMPLES` as tags, not escapes. `show_controls_as_tags` does the reverse for the printed Input and Reordered text lines. Because `bidi.py` does not implement P1, `split_into_paragraphs` splits user text after each type-B character (CR LF counts as one) and runs each paragraph separately. Each built-in example in `EXAMPLES` carries a "Watch for" note; if you change an example, check that its note still matches the verbose output. `main()` calls `sys.stdout.reconfigure(encoding="utf-8")` so Hebrew/Arabic output works in Windows consoles.
 
 **Use as a library:**
 ```python

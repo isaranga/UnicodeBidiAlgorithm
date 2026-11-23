@@ -14,7 +14,8 @@ Usage:
 
 Demo:
     python bidi.py
-    Runs built-in example strings through the full algorithm with verbose output.
+    Lists the built-in examples and shows how to run one of them, all of
+    them, or your own text with verbose output. See demo.py.
 """
 
 import unicodedata
@@ -1244,24 +1245,9 @@ def apply_bidi_algorithm(
 # SECTION: Demo
 # ============================================================
 
-if __name__ == '__main__':
-    examples = [
-        ("Hello, World!", "Pure LTR"),
-        ("שלום", "Pure RTL (Hebrew: shalom)"),
-        ("שלום 123 Hi", "Mixed RTL+digits+LTR"),
-        ("\u202AHello שלום\u202C", "LRE/PDF explicit embedding"),
-        ("הוא אמר: ״\u2066Car is מכונית in Hebrew\u2069״.\u200f", "LRI/FSI isolate"),
-        ('He said “שלום”', "Neutral brackets + N0"),
-    ]
+# The command-line demo (built-in examples, your own text, options) lives in
+# demo.py, so that this file holds only the algorithm.
 
-    for text, description in examples:
-        print("=" * 60)
-        print(f"Example: {description}")
-        print(f"Input: {repr(text)}")
-        print()
-        levels, reordered, para_level, visual_order = apply_bidi_algorithm(text, verbose=True)
-        print(f"Paragraph level:  {para_level}")
-        print(f"Embedding levels: {levels}")
-        print(f"Visual order:     {visual_order}")
-        print(f"Reordered text:   {repr(reordered)}")
-        print()
+if __name__ == '__main__':
+    import demo
+    demo.main()

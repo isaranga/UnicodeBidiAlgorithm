@@ -4,7 +4,7 @@ A readable, pure-Python implementation of the [Unicode Bidirectional Algorithm (
 
 The bidi algorithm decides how text that mixes left-to-right scripts (Latin, Cyrillic, …) with right-to-left scripts (Hebrew, Arabic, …) is laid out on screen. This project is meant for **learning how that algorithm works**. It favours clarity over speed or brevity:
 
-- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library. The two Unicode data files it needs are kept, unchanged, in [ucd/](ucd/), and are read by [ucd_data.py](ucd_data.py). The tables printed in verbose mode are formatted separately, in [verbose_table.py](verbose_table.py). Neither file holds any algorithm logic; they are kept apart so that file reading and formatting code don't clutter the algorithm.
+- The whole algorithm is in one file, [bidi.py](bidi.py), with no dependencies beyond the Python standard library. The two Unicode data files it needs are kept, unchanged, in [ucd/](ucd/), and are read by [ucd_data.py](ucd_data.py). The tables printed in verbose mode are formatted separately, in [verbose_table.py](verbose_table.py), and the command-line demo lives in [demo.py](demo.py). None of these files holds any algorithm logic; they are kept apart so that file reading, formatting and command-line code don't clutter the algorithm.
 - Each UAX #9 rule has its own function, named after the rule (`_apply_w1`, `_apply_n0`, `_apply_l2`, …), so you can read the code next to the spec.
 - A **verbose mode** prints a before/after table every time a rule is applied, so you can follow a string through the algorithm step by step.
 
@@ -18,7 +18,27 @@ cd UnicodeBidiAlgorithm
 python bidi.py
 ```
 
-This runs a set of example strings (pure LTR, pure RTL, mixed text with digits, explicit embeddings, isolates, and brackets) through the full algorithm with verbose output.
+This lists the built-in examples (pure LTR, pure RTL, mixed text with digits, explicit embeddings, isolates, and brackets) and shows how to run them:
+
+```bash
+python bidi.py --example 3          # run one example, printing a table for every rule
+python bidi.py --all                # run all the examples
+python bidi.py "Hello שלום"         # run your own text
+python bidi.py --file input.txt     # run the text in a UTF-8 file
+```
+
+Each example comes with a note on what to look for in its output. Two options work in every mode:
+
+- `--brief` prints only the results (levels, visual order, reordered text) without the rule-by-rule tables.
+- `--direction ltr` or `--direction rtl` sets the paragraph direction instead of detecting it. Running the same text both ways is a good way to see what the paragraph level changes.
+
+Bidi control characters are invisible and hard to type, so your text can name them with tags: `[LRE]`, `[RLE]`, `[PDF]`, `[LRO]`, `[RLO]`, `[LRI]`, `[RLI]`, `[FSI]`, `[PDI]`, `[LRM]`, `[RLM]`, `[ALM]`. Any character can also be written as `\uXXXX`. The built-in examples are written the same way, and the demo prints control characters as tags in its input and output lines. For example:
+
+```bash
+python bidi.py "[RLI]Hello[PDI] שלום"
+```
+
+Text with several paragraphs (for example, several lines in a file) is run one paragraph at a time. The demo itself lives in [demo.py](demo.py), so that `bidi.py` holds only the algorithm.
 
 ## Using it as a library
 
@@ -93,7 +113,7 @@ Some things to know when reading the code:
 
 ## Scope and caveats
 
-- The input is treated as a single paragraph; the algorithm does not split text at paragraph separators (rule P1).
+- `apply_bidi_algorithm` treats its input as a single paragraph; it does not split text at paragraph separators (rule P1). The command-line demo does this splitting before calling it.
 - Line breaking is not handled: the L rules treat the whole input as one line.
 - Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be older than 17.0 (for example, Python 3.14 uses Unicode 16.0). Characters added in later Unicode versions may then get the wrong bidi class.
 - Rule L3 (combining marks) takes no action. The spec leaves this to the renderer.
