@@ -29,6 +29,8 @@ from bidi import apply_bidi_algorithm
 # ============================================================
 #
 # Each example is (text, title, what to watch for in the verbose output).
+# Bidi control characters are written as tags such as [LRI], the same way
+# you can write them in your own text (see expand_escapes_and_tags below).
 
 EXAMPLES = [
     (
@@ -47,12 +49,12 @@ EXAMPLES = [
         "N1 turns the space before the digits into R; I2 raises the digits and Latin letters to level 2.",
     ),
     (
-        "‪Hello שלום‬",
+        "[LRE]Hello שלום[PDF]",
         "LRE/PDF explicit embedding",
         "X1-X9 put the text between LRE and PDF at level 2, so the Hebrew word ends up at level 3 after I1.",
     ),
     (
-        "הוא אמר: ״⁦Car is מכונית in Hebrew⁩״.‏",
+        "הוא אמר: ״[LRI]Car is מכונית in Hebrew[PDI]״.[RLM]",
         "LRI/PDI isolate",
         "The text between LRI and PDI forms its own isolating run sequence (level 2), "
         "separate from the Hebrew sentence around it (level 1).",
@@ -67,7 +69,7 @@ EXAMPLES = [
 
 
 # ============================================================
-# Reading escapes and tags in user text
+# Writing bidi controls as tags and escapes
 # ============================================================
 #
 # Bidi control characters are invisible and hard to type on a command line,
@@ -110,6 +112,26 @@ def expand_escapes_and_tags(text: str) -> str:
     return text
 
 
+def show_controls_as_tags(text: str) -> str:
+    """
+    Quote text for printing, showing each bidi control character as its tag.
+
+    This is the reverse of expand_escapes_and_tags for the controls, so the
+    input and output lines can be read and copied back onto the command line.
+    """
+    shown = ''
+    for ch in text:
+        tag = None
+        for name, control in CONTROL_TAGS.items():
+            if ch == control:
+                tag = name
+        if tag is not None:
+            shown += f'[{tag}]'
+        else:
+            shown += ch
+    return repr(shown)
+
+
 # ============================================================
 # Splitting user text into paragraphs
 # ============================================================
@@ -148,7 +170,7 @@ DIRECTION_TO_LEVEL = {'auto': None, 'ltr': 0, 'rtl': 1}
 def run_text(text: str, title: str, note: str | None, direction: str, brief: bool) -> None:
     print("=" * 60)
     print(title)
-    print(f"Input: {repr(text)}")
+    print(f"Input: {show_controls_as_tags(text)}")
     if note:
         print(f"Watch for: {note}")
     print()
@@ -164,7 +186,7 @@ def run_text(text: str, title: str, note: str | None, direction: str, brief: boo
     print(f"Paragraph level:  {para_level}")
     print(f"Embedding levels: {levels}")
     print(f"Visual order:     {visual_order}")
-    print(f"Reordered text:   {repr(reordered)}")
+    print(f"Reordered text:   {show_controls_as_tags(reordered)}")
     print()
 
 
@@ -224,6 +246,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.all:
         for number, (text, title, note) in enumerate(EXAMPLES, start=1):
+            text = expand_escapes_and_tags(text)
             run_text(text, f"Example {number}: {title}", note, args.direction, args.brief)
         return
 
@@ -231,6 +254,7 @@ def main(argv: list[str] | None = None) -> None:
         if not 1 <= args.example <= len(EXAMPLES):
             parser.error(f"--example must be between 1 and {len(EXAMPLES)}")
         text, title, note = EXAMPLES[args.example - 1]
+        text = expand_escapes_and_tags(text)
         run_text(text, f"Example {args.example}: {title}", note, args.direction, args.brief)
         return
 

@@ -32,7 +32,7 @@ Each example comes with a note on what to look for in its output. Two options wo
 - `--brief` prints only the results (levels, visual order, reordered text) without the rule-by-rule tables.
 - `--direction ltr` or `--direction rtl` sets the paragraph direction instead of detecting it. Running the same text both ways is a good way to see what the paragraph level changes.
 
-Bidi control characters are invisible and hard to type, so your text can name them with tags: `[LRE]`, `[RLE]`, `[PDF]`, `[LRO]`, `[RLO]`, `[LRI]`, `[RLI]`, `[FSI]`, `[PDI]`, `[LRM]`, `[RLM]`, `[ALM]`. Any character can also be written as `\uXXXX`. For example:
+Bidi control characters are invisible and hard to type, so your text can name them with tags: `[LRE]`, `[RLE]`, `[PDF]`, `[LRO]`, `[RLO]`, `[LRI]`, `[RLI]`, `[FSI]`, `[PDI]`, `[LRM]`, `[RLM]`, `[ALM]`. Any character can also be written as `\uXXXX`. The built-in examples are written the same way, and the demo prints control characters as tags in its input and output lines. For example:
 
 ```bash
 python bidi.py "[RLI]Hello[PDI] שלום"
