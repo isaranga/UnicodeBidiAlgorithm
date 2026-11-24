@@ -19,9 +19,8 @@ Options for every mode:
 import argparse
 import re
 import sys
-import unicodedata
 
-from bidi import apply_bidi_algorithm
+from bidi import apply_bidi_algorithm, split_into_paragraphs
 
 
 # ============================================================
@@ -64,6 +63,12 @@ EXAMPLES = [
         "Brackets (N0) and mirroring (L4)",
         "N0 makes both parentheses R, because they hold Hebrew text that follows Hebrew; "
         "L4 then mirrors them in the reordered text.",
+    ),
+    (
+        "שלום\nHello",
+        "Two paragraphs (P1)",
+        "P1 splits the text after the newline; P2 then finds R in paragraph 1 (level 1) "
+        "and L in paragraph 2 (level 0), so each paragraph gets its own direction.",
     ),
 ]
 
@@ -133,34 +138,6 @@ def show_controls_as_tags(text: str) -> str:
 
 
 # ============================================================
-# Splitting user text into paragraphs
-# ============================================================
-
-def split_into_paragraphs(text: str) -> list[str]:
-    """
-    Split text after each paragraph separator (bidi type B, such as a newline).
-
-    bidi.py does not implement rule P1 and treats its input as one paragraph,
-    so the demo does the splitting itself. As P1 says, each separator stays
-    at the end of the paragraph it closes. CR LF counts as a single separator.
-    """
-    paragraphs = []
-    current = ''
-    for i, ch in enumerate(text):
-        current += ch
-        if unicodedata.bidirectional(ch) != 'B':
-            continue
-        next_is_lf = i + 1 < len(text) and text[i + 1] == '\n'
-        if ch == '\r' and next_is_lf:
-            continue  # the LF that follows ends this paragraph
-        paragraphs.append(current)
-        current = ''
-    if current:
-        paragraphs.append(current)
-    return paragraphs
-
-
-# ============================================================
 # Running and printing
 # ============================================================
 
@@ -168,6 +145,24 @@ DIRECTION_TO_LEVEL = {'auto': None, 'ltr': 0, 'rtl': 1}
 
 
 def run_text(text: str, title: str, note: str | None, direction: str, brief: bool) -> None:
+    """Split the text into paragraphs (rule P1) and run each one."""
+    paragraphs = split_into_paragraphs(text)
+    if len(paragraphs) == 1:
+        run_paragraph(text, title, note, direction, brief)
+        return
+
+    print("=" * 60)
+    print(title)
+    print(f"Input: {show_controls_as_tags(text)}")
+    if note:
+        print(f"Watch for: {note}")
+    print(f"P1 splits the text into {len(paragraphs)} paragraphs; each is run separately.")
+    print()
+    for number, paragraph in enumerate(paragraphs, start=1):
+        run_paragraph(paragraph, f"{title}, paragraph {number}", None, direction, brief)
+
+
+def run_paragraph(text: str, title: str, note: str | None, direction: str, brief: bool) -> None:
     print("=" * 60)
     print(title)
     print(f"Input: {show_controls_as_tags(text)}")
@@ -214,7 +209,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Bidi control characters can be written as tags: "
             + ", ".join(f"[{name}]" for name in CONTROL_TAGS)
             + ". Any character can also be written as \\uXXXX or \\UXXXXXXXX. "
-            "Text with several paragraphs (for example, several lines) is run one paragraph at a time."
+            "Text with several paragraphs (for example, several lines) is split by rule P1 "
+            "and run one paragraph at a time."
         ),
     )
     source = parser.add_mutually_exclusive_group()
@@ -271,18 +267,9 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     user_text = expand_escapes_and_tags(user_text)
-    paragraphs = split_into_paragraphs(user_text)
-    if not paragraphs:
+    if not user_text:
         parser.error("the text is empty")
-
-    if len(paragraphs) == 1:
-        run_text(paragraphs[0], "Your text", None, args.direction, args.brief)
-        return
-
-    print(f"The text has {len(paragraphs)} paragraphs; each is run separately (rule P1).")
-    print()
-    for number, paragraph in enumerate(paragraphs, start=1):
-        run_text(paragraph, f"Paragraph {number}", None, args.direction, args.brief)
+    run_text(user_text, "Your text", None, args.direction, args.brief)
 
 
 if __name__ == '__main__':

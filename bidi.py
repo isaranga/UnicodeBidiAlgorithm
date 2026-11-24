@@ -9,8 +9,13 @@ Unicode version caveat: This implementation targets Unicode 17.0.
   which reflects the Unicode version bundled with your Python build.
 
 Usage:
-    from bidi import apply_bidi_algorithm
+    from bidi import apply_bidi_algorithm, split_into_paragraphs
     levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello עולם", verbose=False)
+
+    apply_bidi_algorithm handles one paragraph. For text that may hold several
+    (for example, several lines), split it first with rule P1:
+    for paragraph in split_into_paragraphs(text):
+        levels, reordered, para_level, visual_order = apply_bidi_algorithm(paragraph)
 
 Demo:
     python bidi.py
@@ -216,11 +221,35 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
 # SECTION: P rules
 # ============================================================
 #
-# Rule P1 (split the text into paragraphs at each paragraph separator,
-# type B) is not implemented. The input is assumed to be a single
-# paragraph, so the whole text goes through the rest of the algorithm
-# as one unit. To handle text with several paragraphs, split it at its
-# paragraph separators first and call apply_bidi_algorithm on each part.
+# Rule P1 works on the raw text and is applied before everything else:
+# split_into_paragraphs cuts the text into paragraphs, and each paragraph
+# then goes through apply_bidi_algorithm (rules P2 to L4) on its own.
+
+def split_into_paragraphs(text: str) -> list[str]:
+    """
+    P1: Split the text into paragraphs.
+
+    A paragraph ends after each paragraph separator (bidi type B, such as a
+    newline or U+2029 PARAGRAPH SEPARATOR). The separator is kept at the end
+    of the paragraph it closes, as P1 says. CR LF counts as a single
+    separator, so it is not split in two. Text after the last separator,
+    if any, forms the final paragraph.
+    """
+    paragraphs = []
+    current = ''
+    for i, ch in enumerate(text):
+        current += ch
+        if unicodedata.bidirectional(ch) != 'B':
+            continue
+        next_is_lf = i + 1 < len(text) and text[i + 1] == '\n'
+        if ch == '\r' and next_is_lf:
+            continue  # the LF that follows ends this paragraph
+        paragraphs.append(current)
+        current = ''
+    if current:
+        paragraphs.append(current)
+    return paragraphs
+
 
 def determine_paragraph_embedding_level(chars: list[CharacterInfo], verbose: bool = False) -> int:
     """
@@ -1170,7 +1199,11 @@ def apply_bidi_algorithm(
     paragraph_embedding_level: int | None = None,
 ) -> tuple[list[int], str, int, list[int]]:
     """
-    Apply the Unicode Bidirectional Algorithm (UAX #9) to text.
+    Apply the Unicode Bidirectional Algorithm (UAX #9) to one paragraph.
+
+    The text must be a single paragraph: a paragraph separator (type B) may
+    only appear as its last character. Split longer text with
+    split_into_paragraphs (rule P1) and call this function on each part.
 
     Args:
         paragraph_embedding_level: If provided (0 or 1), use this as the paragraph

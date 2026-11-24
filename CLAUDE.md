@@ -37,13 +37,13 @@ python tests/run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fa
 
 **Run the demo** (`demo.py`, reached through `bidi.py`):
 ```bash
-python bidi.py                     # list the six built-in examples and usage hints
+python bidi.py                     # list the seven built-in examples and usage hints
 python bidi.py --all               # run every example with verbose output
 python bidi.py --example N         # run one example
 python bidi.py "text"              # run your own text
 python bidi.py --file PATH         # run the text in a UTF-8 file
 ```
-Every mode accepts `--brief` (results only, no tables) and `--direction {auto,ltr,rtl}` (passed as `paragraph_embedding_level`). User text (argument or file) and the built-in `EXAMPLES` may contain `[LRI]`-style tags for the bidi controls and `\uXXXX` / `\UXXXXXXXX` escapes; `expand_escapes_and_tags` turns them into characters before the text is run. Write controls in `EXAMPLES` as tags, not escapes. `show_controls_as_tags` does the reverse for the printed Input and Reordered text lines. Because `bidi.py` does not implement P1, `split_into_paragraphs` splits user text after each type-B character (CR LF counts as one) and runs each paragraph separately. Each built-in example in `EXAMPLES` carries a "Watch for" note; if you change an example, check that its note still matches the verbose output. `main()` calls `sys.stdout.reconfigure(encoding="utf-8")` so Hebrew/Arabic output works in Windows consoles.
+Every mode accepts `--brief` (results only, no tables) and `--direction {auto,ltr,rtl}` (passed as `paragraph_embedding_level`). User text (argument or file) and the built-in `EXAMPLES` may contain `[LRI]`-style tags for the bidi controls and `\uXXXX` / `\UXXXXXXXX` escapes; `expand_escapes_and_tags` turns them into characters before the text is run. Write controls in `EXAMPLES` as tags, not escapes. `show_controls_as_tags` does the reverse for the printed Input and Reordered text lines. `run_text` splits every text (user text and built-in examples alike) with `split_into_paragraphs` from `bidi.py` (rule P1) and runs each paragraph separately through `run_paragraph`. Each built-in example in `EXAMPLES` carries a "Watch for" note; if you change an example, check that its note still matches the verbose output. `main()` calls `sys.stdout.reconfigure(encoding="utf-8")` so Hebrew/Arabic output works in Windows consoles.
 
 **Use as a library:**
 ```python
@@ -61,11 +61,13 @@ levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello שלו
 
 ### Algorithm phases
 
+Rule P1 is `split_into_paragraphs`, which works on the raw string and runs before everything else: it splits after each type-B character (CR LF counts as one), keeping the separator at the end of its paragraph. `apply_bidi_algorithm` handles **one paragraph** (a B may only be its last character); callers with longer text call it once per paragraph. The conformance files contain no B except at the end, so P1 is not covered by them.
+
 `apply_bidi_algorithm` orchestrates six phases in order, each corresponding to a section of UAX #9:
 
 | Phase | Function | UAX #9 rules |
 |-------|----------|--------------|
-| P | `determine_paragraph_embedding_level` | P2–P3 |
+| P | `determine_paragraph_embedding_level` | P2–P3 (P1 is applied beforehand) |
 | X | `apply_explicit_levels` | X1–X9 |
 | W | `apply_weak_rules` | W1–W7 |
 | N | `apply_neutral_rules` | N0–N2 |
