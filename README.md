@@ -18,7 +18,7 @@ cd UnicodeBidiAlgorithm
 python bidi.py
 ```
 
-This lists the built-in examples (pure LTR, pure RTL, mixed text with digits, explicit embeddings, isolates, and brackets) and shows how to run them:
+This lists the built-in examples (pure LTR, pure RTL, mixed text with digits, explicit embeddings, isolates, brackets, and two paragraphs) and shows how to run them:
 
 ```bash
 python bidi.py --example 3          # run one example, printing a table for every rule
@@ -38,7 +38,7 @@ Bidi control characters are invisible and hard to type, so your text can name th
 python bidi.py "[RLI]Hello[PDI] שלום"
 ```
 
-Text with several paragraphs (for example, several lines in a file) is run one paragraph at a time. The demo itself lives in [demo.py](demo.py), so that `bidi.py` holds only the algorithm.
+Text with several paragraphs (for example, several lines in a file) is split into paragraphs by rule P1 and run one paragraph at a time. The demo itself lives in [demo.py](demo.py), so that `bidi.py` holds only the algorithm.
 
 ## Using it as a library
 
@@ -58,6 +58,15 @@ levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello שלו
 | `visual_order` | For each visual position, the index of the input character shown there |
 
 By default the paragraph direction is detected from the first strong character (rules P2–P3). Pass `paragraph_embedding_level=0` or `1` to force it.
+
+`apply_bidi_algorithm` handles one paragraph. If your text may contain several (for example, several lines), split it first with `split_into_paragraphs` (rule P1) and run each part; each paragraph then gets its own direction:
+
+```python
+from bidi import apply_bidi_algorithm, split_into_paragraphs
+
+for paragraph in split_into_paragraphs("שלום\nHello"):
+    levels, reordered, para_level, visual_order = apply_bidi_algorithm(paragraph)
+```
 
 ## Tracing the algorithm
 
@@ -92,7 +101,7 @@ Here N1 turns the space between the Hebrew word and the digits into `R`, because
 
 ## How the code is organised
 
-`apply_bidi_algorithm` runs six phases in order. Each matches a section of UAX #9:
+Rule P1 comes first: `split_into_paragraphs` cuts the text into paragraphs after each paragraph separator. `apply_bidi_algorithm` then runs six phases in order on one paragraph. Each matches a section of UAX #9:
 
 | Phase | Function | UAX #9 rules | What it does |
 |-------|----------|--------------|--------------|
@@ -113,7 +122,7 @@ Some things to know when reading the code:
 
 ## Scope and caveats
 
-- `apply_bidi_algorithm` treats its input as a single paragraph; it does not split text at paragraph separators (rule P1). The command-line demo does this splitting before calling it.
+- `apply_bidi_algorithm` treats its input as a single paragraph. Split longer text with `split_into_paragraphs` (rule P1) first, as the command-line demo does. The official conformance files contain no paragraph separator except at the end of a test, so they do not check P1.
 - Line breaking is not handled: the L rules treat the whole input as one line.
 - Bidi classes come from Python's `unicodedata` module, so they follow the Unicode version built into your Python, which may be older than 17.0 (for example, Python 3.14 uses Unicode 16.0). Characters added in later Unicode versions may then get the wrong bidi class.
 - Rule L3 (combining marks) takes no action. The spec leaves this to the renderer.
