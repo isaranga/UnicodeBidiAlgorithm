@@ -38,14 +38,28 @@ EXAMPLES = [
         "Everything stays at level 0, so L2 leaves the order unchanged.",
     ),
     (
-        "שלום",
-        "Pure RTL (Hebrew: shalom)",
-        "P2 finds R first, so the paragraph is RTL (level 1); L2 reverses the whole string.",
+        "שָׁלוֹם",
+        "Pure RTL (Hebrew with nikkud)",
+        "P2 finds R first, so the paragraph is RTL (level 1); W1 gives each vowel point (NSM) "
+        "the type of the letter before it (R); L2 reverses the whole string, so each point "
+        "now comes before its letter (rule L3 leaves fixing that to the renderer).",
     ),
     (
         "שלום 123 Hi",
         "Mixed RTL + digits + LTR",
         "N1 turns the space before the digits into R; I2 raises the digits and Latin letters to level 2.",
+    ),
+    (
+        "سعر 1,000 ريال",
+        "Arabic text with a number",
+        "W2 turns the digits into AN because the last strong type before them is AL; "
+        "W3 then turns AL into R, and W4 makes the comma AN because it sits between two AN.",
+    ),
+    (
+        "Price: $100, 1.5%",
+        "Prices and percentages",
+        "W4 makes the dot in 1.5 EN; W5 makes $ and % EN because they touch a number; "
+        "W6 makes the other separators ON; W7 turns every EN into L because the last strong type before it is L.",
     ),
     (
         "[LRE]Hello שלום[PDF]",

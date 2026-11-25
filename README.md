@@ -18,7 +18,7 @@ cd UnicodeBidiAlgorithm
 python bidi.py
 ```
 
-This lists the built-in examples (pure LTR, pure RTL, mixed text with digits, explicit embeddings, isolates, brackets, and two paragraphs) and shows how to run them:
+This lists the built-in examples (pure LTR, pure RTL, mixed text with digits, Arabic text with a number, prices and percentages, explicit embeddings, isolates, brackets, and two paragraphs) and shows how to run them:
 
 ```bash
 python bidi.py --example 3          # run one example, printing a table for every rule
