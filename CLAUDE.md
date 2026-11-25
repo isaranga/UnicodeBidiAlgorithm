@@ -37,7 +37,7 @@ python tests/run_bidi_type_tests.py [--max-failures N] [--lines START-END] [--fa
 
 **Run the demo** (`demo.py`, reached through `bidi.py`):
 ```bash
-python bidi.py                     # list the seven built-in examples and usage hints
+python bidi.py                     # list the nine built-in examples and usage hints
 python bidi.py --all               # run every example with verbose output
 python bidi.py --example N         # run one example
 python bidi.py "text"              # run your own text
