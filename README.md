@@ -70,7 +70,7 @@ for paragraph in split_into_paragraphs("שלום\nHello"):
 
 ## Tracing the algorithm
 
-Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, its code point, the character itself, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal.
+Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, its code point, the character itself, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal. Phase X prints two tables, one for the levels it assigns and one for the types it changes, so that an embedding or isolate shows up even when no type changes.
 
 ```python
 apply_bidi_algorithm("שלום 123 Hi", verbose=True)
