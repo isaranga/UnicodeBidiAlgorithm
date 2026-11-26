@@ -333,8 +333,11 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
     X1-X9: Assign embedding levels based on explicit formatting characters.
     Modifies chars[i].embedding_level and chars[i].character_type in place.
     character_type changes: characters inside a directional override (RLO/LRO)
-    have their type set to 'R' or 'L'; characters whose original_type is in
-    X9_REMOVE_TYPES (RLE, LRE, RLO, LRO, PDF, BN) are reset to 'BN'.
+    have their type set to 'R' or 'L'; an FSI's type becomes 'RLI' or 'LRI'
+    (X5c); characters whose original_type is in X9_REMOVE_TYPES (RLE, LRE,
+    RLO, LRO, PDF, BN) are reset to 'BN'.
+    In verbose mode, prints one table for the levels (before = the paragraph
+    level from X1) and one for the types.
     """
     # X1: Initialize
     stack = [(paragraph_embedding_level, 'neutral', False)]
@@ -343,6 +346,10 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
     valid_isolate_count = 0
 
     before_types = [ci.original_type for ci in chars]
+
+    # For the verbose levels table: X1 starts every character at the
+    # paragraph embedding level, so that is the "before" level.
+    before_levels = [paragraph_embedding_level] * len(chars)
 
     for ci in chars:
         t = ci.character_type
@@ -485,9 +492,14 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
             ci.character_type = 'BN'
 
     if verbose:
-        after_types = [ci.character_type for ci in chars]
         print("=== Phase X: Explicit Embedding Levels ===")
-        print_table("X1-X9", chars, before_types, after_types)
+        # Two tables: the levels set by X1-X8, then the types changed by
+        # directional overrides (X5a-X6a, FSI resolution in X5c) and by X9.
+        after_levels = [ci.embedding_level for ci in chars]
+        print_table("X1-X8 (levels)", chars,
+                    [str(l) for l in before_levels], [str(l) for l in after_levels])
+        after_types = [ci.character_type for ci in chars]
+        print_table("X1-X9 (types)", chars, before_types, after_types)
 
 
 # ============================================================
