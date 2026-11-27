@@ -70,8 +70,9 @@ EXAMPLES = [
     (
         "הוא אמר: ״[LRI]Car is מכונית in Hebrew[PDI]״.[RLM]",
         "LRI/PDI isolate",
-        "The X1-X8 (levels) table puts the text between LRI and PDI at level 2; it forms its own "
-        "isolating run sequence, separate from the Hebrew sentence around it (level 1).",
+        "The X1-X8 (levels) table puts the text between LRI and PDI at level 2. The X10 list then "
+        "shows it as its own isolating run sequence (characters 11-33), while the Hebrew sentence "
+        "around it forms one sequence at level 1 (characters 0-10 and 34-37), joined across the isolate.",
     ),
     (
         "Hello שלום (עולם)",

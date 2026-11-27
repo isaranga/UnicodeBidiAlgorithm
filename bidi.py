@@ -27,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass
 
 # Formatting of the verbose-mode tables; not part of the algorithm itself.
-from verbose_table import print_table, format_char_for_table
+from verbose_table import print_table, print_isolating_run_sequences, format_char_for_table
 
 # Three lookup tables are read, at import time, from the Unicode Character
 # Database (UCD) files kept unchanged in the ucd/ folder (see ucd_data.py for how):
@@ -639,13 +639,14 @@ def _apply_w7(types: list[str], sos: str) -> list[str]:
     return result
 
 
-def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
+def apply_weak_rules(chars: list[CharacterInfo], sequences: list[dict],
                      verbose: bool = False) -> None:
     """W1-W7: Resolve weak bidi types per isolating run sequence.
-    Mutates chars[i].character_type in place. Returns None.
-    """
-    sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
 
+    `sequences` are the isolating run sequences computed by X10
+    (get_isolating_run_sequences). Mutates chars[i].character_type in place.
+    Returns None.
+    """
     for seq in sequences:
         run_indices = seq['run_indices']
         sos = seq['sos']
@@ -926,7 +927,7 @@ def _apply_n2(types: list[str], embedding_level: int) -> list[str]:
     return result
 
 
-def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
+def apply_neutral_rules(chars: list[CharacterInfo], sequences: list[dict],
                         verbose: bool = False) -> None:
     """N0-N2: Resolve neutral and isolate formatting characters per isolating run sequence.
 
@@ -936,12 +937,10 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         takes that direction.
     N2: Any remaining NI characters take the embedding direction.
 
-    `paragraph_embedding_level` is used only to compute the isolating run sequences
-    (sos/eos context types and embedding levels). Mutates chars[i].character_type
-    in place. Returns None.
+    `sequences` are the isolating run sequences computed by X10
+    (get_isolating_run_sequences). Mutates chars[i].character_type in place.
+    Returns None.
     """
-    sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
-
     for seq in sequences:
         run_indices = seq['run_indices']
         sos = seq['sos']
@@ -1018,6 +1017,12 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
 
     I1: For characters at an even (L) level — R goes up one, AN and EN go up two.
     I2: For characters at an odd (R) level — L, EN, and AN go up one.
+
+    UAX #9 applies these rules to each isolating run sequence, like W and N.
+    Unlike W and N, though, I1 and I2 look only at each character's own type
+    and level (no neighbours, no sos/eos), and every character belongs to
+    exactly one sequence. So they are applied here to the whole paragraph at
+    once, which gives the same levels.
 
     Precondition: weak and neutral rules must have resolved all character types to
     L, R, EN, AN, or BN before this function is called. BN characters are skipped
@@ -1259,13 +1264,27 @@ def apply_bidi_algorithm(
     # Phase X: Explicit embedding levels
     apply_explicit_levels(chars, paragraph_level, verbose=verbose)
 
+    # X10: Split the paragraph into isolating run sequences, each with its
+    # sos and eos types.  The sequences are computed once, here, and phases
+    # W and N then work on each sequence separately.
+    #
+    # UAX #9 takes each sequence through W1-W7, N0-N2 and I1-I2 before moving
+    # to the next sequence.  Here, every sequence goes through phase W, then
+    # every sequence through phase N, then phase I.  The result is the same,
+    # because the rules for one sequence look only at the characters in that
+    # sequence (and at its sos/eos), never at the other sequences.
+    sequences = get_isolating_run_sequences(chars, paragraph_level)
+    if verbose:
+        print_isolating_run_sequences(sequences)
+
     # Phase W: Weak types
-    apply_weak_rules(chars, paragraph_level, verbose=verbose)
+    apply_weak_rules(chars, sequences, verbose=verbose)
 
     # Phase N: Neutral types
-    apply_neutral_rules(chars, paragraph_level, verbose=verbose)
+    apply_neutral_rules(chars, sequences, verbose=verbose)
 
-    # Phase I: Implicit levels
+    # Phase I: Implicit levels (applied to the whole paragraph at once; see
+    # apply_implicit_rules for why that matches applying them per sequence)
     apply_implicit_rules(chars, verbose=verbose)
 
     # Phase L: Reordering

@@ -62,6 +62,47 @@ def center_in_column(text: str, column_width: int) -> str:
     return ' ' * left_padding + text + ' ' * right_padding
 
 
+def format_index_ranges(indices: list[int]) -> str:
+    """
+    Return a sorted list of character indices as ranges, e.g. [0, 1, 2, 7, 8]
+    becomes "0-2, 7-8" and [4] becomes "4".
+    """
+    ranges = []
+    start = indices[0]
+    previous = indices[0]
+    for index in indices[1:]:
+        if index == previous + 1:
+            previous = index
+            continue
+        ranges.append((start, previous))
+        start = index
+        previous = index
+    ranges.append((start, previous))
+
+    parts = []
+    for first, last in ranges:
+        if first == last:
+            parts.append(str(first))
+        else:
+            parts.append(f"{first}-{last}")
+    return ", ".join(parts)
+
+
+def print_isolating_run_sequences(sequences: list[dict]) -> None:
+    """
+    Print the isolating run sequences found by rule X10, one line each:
+    the sequence's level, the indices of its characters, and its sos/eos.
+
+    sequences is the list returned by bidi.get_isolating_run_sequences.
+    """
+    print("=== X10: Isolating Run Sequences ===")
+    for seq in sequences:
+        indices = format_index_ranges(seq['run_indices'])
+        print(f"IRS level={seq['embedding_level']}: characters {indices}"
+              f" | sos={seq['sos']}, eos={seq['eos']}")
+    print()
+
+
 def print_table(rule_name: str, chars: list,
                 types_before: list[str], types_after: list[str],
                 irs_label: str = '') -> None:

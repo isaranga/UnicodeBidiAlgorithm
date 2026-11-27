@@ -70,7 +70,7 @@ for paragraph in split_into_paragraphs("שלום\nHello"):
 
 ## Tracing the algorithm
 
-Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, its code point, the character itself, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal. Phase X prints two tables, one for the levels it assigns and one for the types it changes, so that an embedding or isolate shows up even when no type changes.
+Pass `verbose=True` to see every rule as it runs. Rules that change nothing print a single line; rules that do change something print a table showing each character's index, its code point, the character itself, its type (or level) before and after the rule, and its embedding level. Changed cells are highlighted in the terminal. Phase X prints two tables, one for the levels it assigns and one for the types it changes, so that an embedding or isolate shows up even when no type changes. Rule X10 then lists the isolating run sequences, one line each, with their level, characters and `sos`/`eos`.
 
 ```python
 apply_bidi_algorithm("שלום 123 Hi", verbose=True)
@@ -101,12 +101,13 @@ Here N1 turns the space between the Hebrew word and the digits into `R`, because
 
 ## How the code is organised
 
-Rule P1 comes first: `split_into_paragraphs` cuts the text into paragraphs after each paragraph separator. `apply_bidi_algorithm` then runs six phases in order on one paragraph. Each matches a section of UAX #9:
+Rule P1 comes first: `split_into_paragraphs` cuts the text into paragraphs after each paragraph separator. `apply_bidi_algorithm` then runs these steps in order on one paragraph. Each matches a section of UAX #9:
 
 | Phase | Function | UAX #9 rules | What it does |
 |-------|----------|--------------|--------------|
 | P | `determine_paragraph_embedding_level` | P2–P3 | Picks the paragraph direction |
 | X | `apply_explicit_levels` | X1–X9 | Applies explicit embeddings, overrides and isolates (LRE, RLO, LRI, PDF, PDI, …) |
+| X10 | `get_isolating_run_sequences` | X10 (BD13) | Splits the paragraph into isolating run sequences |
 | W | `apply_weak_rules` | W1–W7 | Resolves weak types such as numbers and separators |
 | N | `apply_neutral_rules` | N0–N2 | Resolves neutrals: brackets first (N0), then spaces and punctuation |
 | I | `apply_implicit_rules` | I1–I2 | Turns the resolved types into final embedding levels |
@@ -115,7 +116,8 @@ Rule P1 comes first: `split_into_paragraphs` cuts the text into paragraphs after
 Some things to know when reading the code:
 
 - **`CharacterInfo`** is the record passed through every phase. `original_type` is the character's Unicode bidi class and never changes; `character_type` is a working copy that the rules update.
-- **Isolating run sequences** (definition BD13) are what phases W and N work on. `get_isolating_run_sequences` builds them by linking runs of the same level across an isolate (LRI/RLI/FSI … PDI), and attaches the `sos`/`eos` types at each end.
+- **Isolating run sequences** (definition BD13) are what phases W and N work on. Rule X10 finds them: `get_isolating_run_sequences` builds them by linking runs of the same level across an isolate (LRI/RLI/FSI … PDI), and attaches the `sos`/`eos` types at each end. `apply_bidi_algorithm` computes them once and passes them to both phases; verbose mode lists them. UAX #9 also applies rules I1–I2 per sequence, but they look only at each character's own type and level, so `apply_implicit_rules` applies them to the whole paragraph at once, with the same result.
+- UAX #9 takes each sequence through W, N and I before moving to the next one. The code instead runs phase W on every sequence, then phase N, then phase I. Each sequence's rules look only at that sequence's characters (and its `sos`/`eos`), so the order makes no difference.
 - **Bracket pairs** for rule N0 are found by `_find_bracket_pairs`, using pairs read from [ucd/BidiBrackets.txt](ucd/BidiBrackets.txt).
 - **Mirrored characters** for rule L4 are read from [ucd/BidiMirroring.txt](ucd/BidiMirroring.txt).
 - Both files are copied unchanged from the [Unicode Character Database](https://www.unicode.org/Public/17.0.0/ucd/) (currently Unicode 17.0.0). To update them, replace them with newer versions.
