@@ -88,18 +88,28 @@ def format_index_ranges(indices: list[int]) -> str:
     return ", ".join(parts)
 
 
-def print_isolating_run_sequences(sequences: list[dict]) -> None:
+def print_isolating_run_sequences(sequences: list[dict], chars: list) -> None:
     """
     Print the isolating run sequences found by rule X10, one line each:
     the sequence's level, the indices of its characters, and its sos/eos.
+    Then list the characters removed by rule X9, which belong to no sequence.
 
-    sequences is the list returned by bidi.get_isolating_run_sequences.
+    sequences is the list returned by bidi.get_isolating_run_sequences;
+    chars is the list of bidi.CharacterInfo objects (only character_type is
+    read, to find the removed characters, whose type is BN).
     """
     print("=== X10: Isolating Run Sequences ===")
     for seq in sequences:
         indices = format_index_ranges(seq['run_indices'])
         print(f"IRS level={seq['embedding_level']}: characters {indices}"
               f" | sos={seq['sos']}, eos={seq['eos']}")
+
+    removed = []
+    for ci in chars:
+        if ci.character_type == 'BN':
+            removed.append(ci.index)
+    if removed:
+        print(f"Removed by X9 (in no sequence): characters {format_index_ranges(removed)}")
     print()
 
 

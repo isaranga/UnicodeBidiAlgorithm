@@ -71,53 +71,56 @@ R_EQUIVALENT_TYPES       = frozenset({'R', 'AL', 'EN', 'AN'})
 
 def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int) -> list[dict]:
     """
-    Compute isolating run sequences per UAX#9 BD13.
+    X10: Compute the isolating run sequences (definition BD13).
     Returns list of dicts with keys: run_indices, embedding_level, sos, eos
 
-    BN characters (removed by X9) are transparent to level-run formation: each
-    BN inherits the effective level of the nearest preceding non-BN character
-    (falling back to paragraph_level at the start of the string).  All
-    level-run boundaries and sos/eos values are computed from this effective
-    level array rather than from raw embedding levels.
+    Characters removed by rule X9 (type BN here) belong to no level run and
+    to no sequence, as if they were not in the text: the characters on either
+    side of them are adjacent.  The W and N rules therefore never see them.
 
     sos and eos are computed per UAX #9 X10: each is 'R' or 'L' according to
     the higher of the two adjacent levels (the IRS level and the level of the
     neighbouring character outside the sequence, or paragraph_level at the
-    paragraph boundaries).
+    paragraph boundaries).  Removed characters are skipped when looking for
+    the neighbouring character.
     """
-    levels = [ci.embedding_level for ci in chars]
     n = len(chars)
 
-    # UAX #9 X9 removes BN characters before level runs are formed, so BN
-    # characters must not create run boundaries of their own.  We build an
-    # effective_levels array where every BN character inherits the embedding
-    # level of the nearest preceding non-BN character (falling back to the
-    # paragraph level at the start of the string).  This array is used for
-    # all level-run and sos/eos computations in place of the raw levels.
-    effective_levels = list(levels)
-    last_non_bn_level = paragraph_level
+    # The characters that X9 did not remove, in logical order.
+    remaining = []
     for i in range(n):
-        if chars[i].character_type == 'BN':
-            effective_levels[i] = last_non_bn_level
-        else:
-            last_non_bn_level = levels[i]
+        if chars[i].character_type != 'BN':
+            remaining.append(i)
 
-    # Get level runs: contiguous runs of same effective level
+    # BD7: level runs are maximal runs of remaining characters with the same
+    # level.  A removed character between two of them does not split a run.
     runs = []
-    i = 0
-    while i < n:
-        level = effective_levels[i]
-        j = i + 1
-        while j < n and effective_levels[j] == level:
-            j += 1
-        runs.append(list(range(i, j)))
-        i = j
+    current_run = []
+    for i in remaining:
+        if current_run and chars[i].embedding_level != chars[current_run[-1]].embedding_level:
+            runs.append(current_run)
+            current_run = []
+        current_run.append(i)
+    if current_run:
+        runs.append(current_run)
 
-    def last_non_bn_type(run_indices):
-        for idx in reversed(run_indices):
-            if chars[idx].character_type != 'BN':
-                return chars[idx].character_type
-        return None
+    def level_before(index):
+        """Level of the nearest remaining character before index, or None."""
+        j = index - 1
+        while j >= 0 and chars[j].character_type == 'BN':
+            j -= 1
+        if j < 0:
+            return None
+        return chars[j].embedding_level
+
+    def level_after(index):
+        """Level of the nearest remaining character after index, or None."""
+        j = index + 1
+        while j < n and chars[j].character_type == 'BN':
+            j += 1
+        if j >= n:
+            return None
+        return chars[j].embedding_level
 
     # Build isolating run sequences by chaining
     used = [False] * len(runs)
@@ -132,16 +135,10 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         current_run = run
 
         while True:
-            last_type = last_non_bn_type(current_run)
-            if last_type not in ISOLATE_INITIATOR_TYPES:
-                break
-            # Find position of last non-BN char in current_run
-            initiator_pos = None
-            for idx in reversed(current_run):
-                if chars[idx].character_type != 'BN':
-                    initiator_pos = idx
-                    break
-            if initiator_pos is None:
+            # A run that ends with an isolate initiator continues at the
+            # run that starts with its matching PDI.
+            initiator_pos = current_run[-1]
+            if chars[initiator_pos].character_type not in ISOLATE_INITIATOR_TYPES:
                 break
 
             # Find matching PDI by counting isolate initiators/terminators
@@ -179,32 +176,27 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         for r in irs_runs:
             all_indices.extend(r)
 
-        # Compute embedding level = effective level of first run
-        irs_level = effective_levels[irs_runs[0][0]]
-
-        # X10: Compute sos
+        # All runs of a sequence have the same level
         start_idx = irs_runs[0][0]
-        if start_idx == 0:
+        irs_level = chars[start_idx].embedding_level
+
+        # X10: Compute sos from the remaining character before the sequence
+        prev_level = level_before(start_idx)
+        if prev_level is None:
             prev_level = paragraph_level
-        else:
-            prev_level = effective_levels[start_idx - 1]
         sos_level = max(prev_level, irs_level)
         sos = 'R' if (sos_level % 2) == 1 else 'L'
 
-        # X10: Compute eos
-        last_run = irs_runs[-1]
-        end_idx = last_run[-1]
-        last_run_level = effective_levels[last_run[0]]
-        last_type = last_non_bn_type(last_run)
-        # Per X10: use paragraph_level when at end of paragraph, or when the last
-        # character is an unmatched isolate initiator (a matched one would have
-        # caused the loop above to chain another run, so any isolate initiator
-        # still at the tail of irs_runs is necessarily unmatched).
-        if end_idx == n - 1 or last_type in ISOLATE_INITIATOR_TYPES:
+        # X10: Compute eos from the remaining character after the sequence.
+        # Per X10, use paragraph_level at the end of the paragraph, or when
+        # the last character is an unmatched isolate initiator (a matched one
+        # would have caused the loop above to chain another run, so any
+        # isolate initiator still at the end of the sequence is unmatched).
+        end_idx = irs_runs[-1][-1]
+        next_level = level_after(end_idx)
+        if next_level is None or chars[end_idx].character_type in ISOLATE_INITIATOR_TYPES:
             next_level = paragraph_level
-        else:
-            next_level = effective_levels[end_idx + 1]
-        eos_level = max(next_level, last_run_level)
+        eos_level = max(next_level, irs_level)
         eos = 'R' if (eos_level % 2) == 1 else 'L'
 
         sequences.append({
@@ -469,9 +461,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 overflow_embedding_count -= 1
             elif not is_isolate and len(stack) >= 2:
                 stack.pop()
-            # Assign the level of the new stack top (after any pop), so that
-            # PDF's BN does not create a spurious high-level run that would
-            # split the isolating run sequence around it.
+            # Assign the level of the new stack top (after any pop).  X9
+            # removes the PDF, so this level takes no part in the later rules.
             ci.embedding_level = stack[-1][0]
 
         # X8: paragraph separator resets to paragraph embedding level
@@ -1275,7 +1266,7 @@ def apply_bidi_algorithm(
     # sequence (and at its sos/eos), never at the other sequences.
     sequences = get_isolating_run_sequences(chars, paragraph_level)
     if verbose:
-        print_isolating_run_sequences(sequences)
+        print_isolating_run_sequences(sequences, chars)
 
     # Phase W: Weak types
     apply_weak_rules(chars, sequences, verbose=verbose)

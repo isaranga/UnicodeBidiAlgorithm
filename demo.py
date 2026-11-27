@@ -65,7 +65,9 @@ EXAMPLES = [
         "[LRE]Hello שלום[PDF]",
         "LRE/PDF explicit embedding",
         "The X1-X8 (levels) table puts the text between LRE and PDF at level 2, so the Hebrew word "
-        "ends up at level 3 after I1; the X1-X9 (types) table shows X9 turning LRE and PDF into BN.",
+        "ends up at level 3 after I1; the X1-X9 (types) table shows X9 turning LRE and PDF into BN. "
+        "X9 removes them, so X10 leaves them out of every isolating run sequence, and the W and N "
+        "tables show only characters 1-10.",
     ),
     (
         "הוא אמר: ״[LRI]Car is מכונית in Hebrew[PDI]״.[RLM]",
