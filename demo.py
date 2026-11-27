@@ -65,13 +65,16 @@ EXAMPLES = [
         "[LRE]Hello שלום[PDF]",
         "LRE/PDF explicit embedding",
         "The X1-X8 (levels) table puts the text between LRE and PDF at level 2, so the Hebrew word "
-        "ends up at level 3 after I1; the X1-X9 (types) table shows X9 turning LRE and PDF into BN.",
+        "ends up at level 3 after I1; the X1-X9 (types) table shows X9 turning LRE and PDF into BN. "
+        "X9 removes them, so X10 leaves them out of every isolating run sequence, and the W and N "
+        "tables show only characters 1-10.",
     ),
     (
         "הוא אמר: ״[LRI]Car is מכונית in Hebrew[PDI]״.[RLM]",
         "LRI/PDI isolate",
-        "The X1-X8 (levels) table puts the text between LRI and PDI at level 2; it forms its own "
-        "isolating run sequence, separate from the Hebrew sentence around it (level 1).",
+        "The X1-X8 (levels) table puts the text between LRI and PDI at level 2. The X10 list then "
+        "shows it as its own isolating run sequence (characters 11-33), while the Hebrew sentence "
+        "around it forms one sequence at level 1 (characters 0-10 and 34-37), joined across the isolate.",
     ),
     (
         "Hello שלום (עולם)",

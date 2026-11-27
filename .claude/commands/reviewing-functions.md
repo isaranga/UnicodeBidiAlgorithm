@@ -39,7 +39,7 @@ Work through the function body from the `def` statement through the last line be
 
 ### UAX#9 context for bidi.py
 
-The data model centers on `CharacterInfo` — `original_type` is immutable, `character_type` is the working copy mutated per phase. Phase-orchestrating functions delegate to `_apply_*` helpers; the W and N phases (`apply_weak_rules`, `apply_neutral_rules`) also call `get_isolating_run_sequences`. `print_table` handles verbose output uniformly. Flag any divergence from these conventions.
+The data model centers on `CharacterInfo` — `original_type` is immutable, `character_type` is the working copy mutated per phase. Phase-orchestrating functions delegate to `_apply_*` helpers; `apply_bidi_algorithm` computes the isolating run sequences once (X10, `get_isolating_run_sequences`) and passes them to the W and N phases (`apply_weak_rules`, `apply_neutral_rules`); the I phase works on the whole paragraph, since I1/I2 are per-character. `print_table` handles verbose output uniformly. Flag any divergence from these conventions.
 
 ## Step 3 — Produce the findings table
 

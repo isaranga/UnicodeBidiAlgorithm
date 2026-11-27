@@ -27,7 +27,7 @@ import unicodedata
 from dataclasses import dataclass
 
 # Formatting of the verbose-mode tables; not part of the algorithm itself.
-from verbose_table import print_table, format_char_for_table
+from verbose_table import print_table, print_isolating_run_sequences, format_char_for_table
 
 # Three lookup tables are read, at import time, from the Unicode Character
 # Database (UCD) files kept unchanged in the ucd/ folder (see ucd_data.py for how):
@@ -71,53 +71,56 @@ R_EQUIVALENT_TYPES       = frozenset({'R', 'AL', 'EN', 'AN'})
 
 def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int) -> list[dict]:
     """
-    Compute isolating run sequences per UAX#9 BD13.
+    X10: Compute the isolating run sequences (definition BD13).
     Returns list of dicts with keys: run_indices, embedding_level, sos, eos
 
-    BN characters (removed by X9) are transparent to level-run formation: each
-    BN inherits the effective level of the nearest preceding non-BN character
-    (falling back to paragraph_level at the start of the string).  All
-    level-run boundaries and sos/eos values are computed from this effective
-    level array rather than from raw embedding levels.
+    Characters removed by rule X9 (type BN here) belong to no level run and
+    to no sequence, as if they were not in the text: the characters on either
+    side of them are adjacent.  The W and N rules therefore never see them.
 
     sos and eos are computed per UAX #9 X10: each is 'R' or 'L' according to
     the higher of the two adjacent levels (the IRS level and the level of the
     neighbouring character outside the sequence, or paragraph_level at the
-    paragraph boundaries).
+    paragraph boundaries).  Removed characters are skipped when looking for
+    the neighbouring character.
     """
-    levels = [ci.embedding_level for ci in chars]
     n = len(chars)
 
-    # UAX #9 X9 removes BN characters before level runs are formed, so BN
-    # characters must not create run boundaries of their own.  We build an
-    # effective_levels array where every BN character inherits the embedding
-    # level of the nearest preceding non-BN character (falling back to the
-    # paragraph level at the start of the string).  This array is used for
-    # all level-run and sos/eos computations in place of the raw levels.
-    effective_levels = list(levels)
-    last_non_bn_level = paragraph_level
+    # The characters that X9 did not remove, in logical order.
+    remaining = []
     for i in range(n):
-        if chars[i].character_type == 'BN':
-            effective_levels[i] = last_non_bn_level
-        else:
-            last_non_bn_level = levels[i]
+        if chars[i].character_type != 'BN':
+            remaining.append(i)
 
-    # Get level runs: contiguous runs of same effective level
+    # BD7: level runs are maximal runs of remaining characters with the same
+    # level.  A removed character between two of them does not split a run.
     runs = []
-    i = 0
-    while i < n:
-        level = effective_levels[i]
-        j = i + 1
-        while j < n and effective_levels[j] == level:
-            j += 1
-        runs.append(list(range(i, j)))
-        i = j
+    current_run = []
+    for i in remaining:
+        if current_run and chars[i].embedding_level != chars[current_run[-1]].embedding_level:
+            runs.append(current_run)
+            current_run = []
+        current_run.append(i)
+    if current_run:
+        runs.append(current_run)
 
-    def last_non_bn_type(run_indices):
-        for idx in reversed(run_indices):
-            if chars[idx].character_type != 'BN':
-                return chars[idx].character_type
-        return None
+    def level_before(index):
+        """Level of the nearest remaining character before index, or None."""
+        j = index - 1
+        while j >= 0 and chars[j].character_type == 'BN':
+            j -= 1
+        if j < 0:
+            return None
+        return chars[j].embedding_level
+
+    def level_after(index):
+        """Level of the nearest remaining character after index, or None."""
+        j = index + 1
+        while j < n and chars[j].character_type == 'BN':
+            j += 1
+        if j >= n:
+            return None
+        return chars[j].embedding_level
 
     # Build isolating run sequences by chaining
     used = [False] * len(runs)
@@ -132,16 +135,10 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         current_run = run
 
         while True:
-            last_type = last_non_bn_type(current_run)
-            if last_type not in ISOLATE_INITIATOR_TYPES:
-                break
-            # Find position of last non-BN char in current_run
-            initiator_pos = None
-            for idx in reversed(current_run):
-                if chars[idx].character_type != 'BN':
-                    initiator_pos = idx
-                    break
-            if initiator_pos is None:
+            # A run that ends with an isolate initiator continues at the
+            # run that starts with its matching PDI.
+            initiator_pos = current_run[-1]
+            if chars[initiator_pos].character_type not in ISOLATE_INITIATOR_TYPES:
                 break
 
             # Find matching PDI by counting isolate initiators/terminators
@@ -179,32 +176,27 @@ def get_isolating_run_sequences(chars: list[CharacterInfo], paragraph_level: int
         for r in irs_runs:
             all_indices.extend(r)
 
-        # Compute embedding level = effective level of first run
-        irs_level = effective_levels[irs_runs[0][0]]
-
-        # X10: Compute sos
+        # All runs of a sequence have the same level
         start_idx = irs_runs[0][0]
-        if start_idx == 0:
+        irs_level = chars[start_idx].embedding_level
+
+        # X10: Compute sos from the remaining character before the sequence
+        prev_level = level_before(start_idx)
+        if prev_level is None:
             prev_level = paragraph_level
-        else:
-            prev_level = effective_levels[start_idx - 1]
         sos_level = max(prev_level, irs_level)
         sos = 'R' if (sos_level % 2) == 1 else 'L'
 
-        # X10: Compute eos
-        last_run = irs_runs[-1]
-        end_idx = last_run[-1]
-        last_run_level = effective_levels[last_run[0]]
-        last_type = last_non_bn_type(last_run)
-        # Per X10: use paragraph_level when at end of paragraph, or when the last
-        # character is an unmatched isolate initiator (a matched one would have
-        # caused the loop above to chain another run, so any isolate initiator
-        # still at the tail of irs_runs is necessarily unmatched).
-        if end_idx == n - 1 or last_type in ISOLATE_INITIATOR_TYPES:
+        # X10: Compute eos from the remaining character after the sequence.
+        # Per X10, use paragraph_level at the end of the paragraph, or when
+        # the last character is an unmatched isolate initiator (a matched one
+        # would have caused the loop above to chain another run, so any
+        # isolate initiator still at the end of the sequence is unmatched).
+        end_idx = irs_runs[-1][-1]
+        next_level = level_after(end_idx)
+        if next_level is None or chars[end_idx].character_type in ISOLATE_INITIATOR_TYPES:
             next_level = paragraph_level
-        else:
-            next_level = effective_levels[end_idx + 1]
-        eos_level = max(next_level, last_run_level)
+        eos_level = max(next_level, irs_level)
         eos = 'R' if (eos_level % 2) == 1 else 'L'
 
         sequences.append({
@@ -469,9 +461,8 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
                 overflow_embedding_count -= 1
             elif not is_isolate and len(stack) >= 2:
                 stack.pop()
-            # Assign the level of the new stack top (after any pop), so that
-            # PDF's BN does not create a spurious high-level run that would
-            # split the isolating run sequence around it.
+            # Assign the level of the new stack top (after any pop).  X9
+            # removes the PDF, so this level takes no part in the later rules.
             ci.embedding_level = stack[-1][0]
 
         # X8: paragraph separator resets to paragraph embedding level
@@ -507,20 +498,18 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
 # ============================================================
 
 def _apply_w1(types: list[str], sos: str) -> list[str]:
-    """W1: NSM takes type of preceding character (or sos), BN is transparent.
+    """W1: NSM takes type of preceding character (or sos).
     Exception: if the preceding character is an isolate initiator or PDI, NSM -> ON.
     """
     result = list(types)
     prev_type = sos
     for i in range(len(types)):
-        t = result[i]
-        if t == 'NSM':
+        if result[i] == 'NSM':
             if prev_type in ISOLATE_INITIATOR_TYPES or prev_type == 'PDI':
                 result[i] = 'ON'
             else:
                 result[i] = prev_type
-        if t != 'BN':
-            prev_type = result[i]
+        prev_type = result[i]
     return result
 
 
@@ -536,8 +525,7 @@ def _apply_w2(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'AL':
             result[i] = 'AN'
-        # Non-strong types (including BN, neutrals, and weak types) are transparent:
-        # they do not update last_strong
+        # Non-strong types (neutrals and weak types) do not update last_strong
     return result
 
 
@@ -546,32 +534,14 @@ def _apply_w3(types: list[str]) -> list[str]:
     return ['R' if t == 'AL' else t for t in types]
 
 
-def _get_prev_non_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type before *index* that is not BN, or None."""
-    j = index - 1
-    while j >= 0 and types[j] == 'BN':
-        j -= 1
-    return types[j] if j >= 0 else None
-
-
-def _get_next_non_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type after *index* that is not BN, or None."""
-    k = index + 1
-    while k < len(types) and types[k] == 'BN':
-        k += 1
-    return types[k] if k < len(types) else None
-
-
 def _apply_w4(types: list[str]) -> list[str]:
-    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type.
-    BN characters are transparent (UAX#9 section 5.2) and are skipped when
-    searching for the neighboring type on either side of the separator."""
+    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type."""
     result = list(types)
     for i in range(1, len(result) - 1):
         if result[i] not in ('ES', 'CS'):
             continue
-        prev_type = _get_prev_non_bn(result, i)
-        next_type = _get_next_non_bn(result, i)
+        prev_type = result[i - 1]
+        next_type = result[i + 1]
         if result[i] == 'ES':
             if prev_type == 'EN' and next_type == 'EN':
                 result[i] = 'EN'
@@ -583,37 +553,25 @@ def _apply_w4(types: list[str]) -> list[str]:
     return result
 
 
-def _get_prev_non_et_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type before *index* that is not ET or BN, or None."""
-    j = index - 1
-    while j >= 0 and types[j] in ('ET', 'BN'):
-        j -= 1
-    return types[j] if j >= 0 else None
-
-
-def _get_next_non_et_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type after *index* that is not ET or BN, or None."""
-    k = index + 1
-    while k < len(types) and types[k] in ('ET', 'BN'):
-        k += 1
-    return types[k] if k < len(types) else None
-
-
 def _apply_w5(types: list[str]) -> list[str]:
-    """W5: ET adjacent to EN -> EN (sequences of ET adjacent to EN become EN).
-    BN characters are transparent (UAX#9 section 5.2), so the scans skip both
-    ET and BN when searching for a bordering EN."""
+    """W5: A sequence of ETs adjacent to an EN (before or after it) -> all EN."""
     result = list(types)
-    # Forward pass: ET following EN
-    for i in range(len(result)):
-        if result[i] == 'ET':
-            if _get_prev_non_et_bn(result, i) == 'EN':
-                result[i] = 'EN'
-    # Backward pass: ET preceding EN
-    for i in range(len(result) - 1, -1, -1):
-        if result[i] == 'ET':
-            if _get_next_non_et_bn(result, i) == 'EN':
-                result[i] = 'EN'
+    n = len(result)
+    i = 0
+    while i < n:
+        if result[i] != 'ET':
+            i += 1
+            continue
+        # result[i:j] is a maximal sequence of ETs
+        j = i
+        while j < n and result[j] == 'ET':
+            j += 1
+        en_before = i > 0 and result[i - 1] == 'EN'
+        en_after = j < n and result[j] == 'EN'
+        if en_before or en_after:
+            for k in range(i, j):
+                result[k] = 'EN'
+        i = j
     return result
 
 
@@ -634,18 +592,18 @@ def _apply_w7(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'L':
             result[i] = 'L'
-        # Non-strong types (including BN, neutrals, and weak types) are transparent:
-        # they do not update last_strong
+        # Non-strong types (neutrals and weak types) do not update last_strong
     return result
 
 
-def apply_weak_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
+def apply_weak_rules(chars: list[CharacterInfo], sequences: list[dict],
                      verbose: bool = False) -> None:
     """W1-W7: Resolve weak bidi types per isolating run sequence.
-    Mutates chars[i].character_type in place. Returns None.
-    """
-    sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
 
+    `sequences` are the isolating run sequences computed by X10
+    (get_isolating_run_sequences). Mutates chars[i].character_type in place.
+    Returns None.
+    """
     for seq in sequences:
         run_indices = seq['run_indices']
         sos = seq['sos']
@@ -763,8 +721,8 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
          direction is found, look at the last strong type before the open
          bracket (falling back to sos) and assign that direction instead.
       2. If no strong type is found inside, leave both brackets as ON.
-      3. Set any NSMs immediately following each bracket (skipping BN/X9
-         characters) to the same direction as the bracket.
+      3. Set any NSMs immediately following each bracket to the same
+         direction as the bracket.
 
     Mutates chars[...].character_type in place. Returns None.
 
@@ -814,25 +772,19 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
         chars[open_idx].character_type = direction
         chars[close_idx].character_type = direction
 
-        # Set NSMs after open bracket (skip over BN/X9 characters)
+        # Set NSMs after open bracket
         for pos in range(open_ri + 1, len(run_indices)):
             idx = run_indices[pos]
-            if chars[idx].original_type == 'NSM':
-                chars[idx].character_type = direction
-            elif chars[idx].original_type in X9_REMOVE_TYPES:
-                continue
-            else:
+            if chars[idx].original_type != 'NSM':
                 break
+            chars[idx].character_type = direction
 
-        # Set NSMs after close bracket (skip over BN/X9 characters)
+        # Set NSMs after close bracket
         for pos in range(close_ri + 1, len(run_indices)):
             idx = run_indices[pos]
-            if chars[idx].original_type == 'NSM':
-                chars[idx].character_type = direction
-            elif chars[idx].original_type in X9_REMOVE_TYPES:
-                continue
-            else:
+            if chars[idx].original_type != 'NSM':
                 break
+            chars[idx].character_type = direction
 
 
 def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
@@ -845,10 +797,11 @@ def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
 
     EN and AN are treated as R (strong right) for adjacency purposes.
     sos and eos supply the strong context at the edges of the sequence.
-    BN characters are transparent: they do not break NI runs, are skipped
-    when searching for adjacent strong types, and their type is not changed.
 
     `types` is not modified; a new list with resolved types is returned.
+
+    Precondition: the W rules have run, so every type that is not NI is
+    L, R, EN or AN.
     """
     result = list(types)
     n = len(result)
@@ -862,39 +815,30 @@ def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
             return 'L'
         return None
 
-    # BN is treated as if not present (UAX#9 section 5.2): it does not start
-    # or end a neutral run, is skipped when looking for adjacent strong types,
-    # and its type is left unchanged during resolution.
     i = 0
     while i < n:
         if result[i] in NEUTRAL_SET:
-            # Find extent of neutral run; BN is transparent, so extend through it
+            # result[i:j] is a maximal run of NI characters
             j = i
-            while j < n and (result[j] in NEUTRAL_SET or result[j] == 'BN'):
+            while j < n and result[j] in NEUTRAL_SET:
                 j += 1
-            # result[i:j] is the NI run (plus any interspersed BN)
 
-            # Determine strong type before; skip backward over BN
+            # Strong type before the run (sos at the start of the sequence)
             if i == 0:
                 before = sos
             else:
-                k = i - 1
-                while k >= 0 and result[k] == 'BN':
-                    k -= 1
-                before = (strong_equiv(result[k]) if k >= 0 else None) or sos
+                before = strong_equiv(result[i - 1])
 
-            # Determine strong type after (scan already moved past BN)
+            # Strong type after the run (eos at the end of the sequence)
             if j == n:
                 after = eos
             else:
                 after = strong_equiv(result[j])
 
-            # N1: both sides agree -> resolve NI characters to that direction;
-            # leave BN type unchanged
+            # N1: both sides agree -> resolve the NI characters to that direction
             if before == after:
                 for k in range(i, j):
-                    if result[k] != 'BN':
-                        result[k] = before
+                    result[k] = before
 
             i = j
         else:
@@ -910,8 +854,6 @@ def _apply_n2(types: list[str], embedding_level: int) -> list[str]:
     Any remaining NI characters (those not resolved by N1) take the
     embedding direction.
 
-    BN characters are transparent and are left unchanged.
-
     `types` is not modified; a new list with resolved types is returned.
     """
     result = list(types)
@@ -926,7 +868,7 @@ def _apply_n2(types: list[str], embedding_level: int) -> list[str]:
     return result
 
 
-def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: int,
+def apply_neutral_rules(chars: list[CharacterInfo], sequences: list[dict],
                         verbose: bool = False) -> None:
     """N0-N2: Resolve neutral and isolate formatting characters per isolating run sequence.
 
@@ -936,12 +878,10 @@ def apply_neutral_rules(chars: list[CharacterInfo], paragraph_embedding_level: i
         takes that direction.
     N2: Any remaining NI characters take the embedding direction.
 
-    `paragraph_embedding_level` is used only to compute the isolating run sequences
-    (sos/eos context types and embedding levels). Mutates chars[i].character_type
-    in place. Returns None.
+    `sequences` are the isolating run sequences computed by X10
+    (get_isolating_run_sequences). Mutates chars[i].character_type in place.
+    Returns None.
     """
-    sequences = get_isolating_run_sequences(chars, paragraph_embedding_level)
-
     for seq in sequences:
         run_indices = seq['run_indices']
         sos = seq['sos']
@@ -1018,6 +958,12 @@ def apply_implicit_rules(chars: list[CharacterInfo], verbose: bool = False) -> N
 
     I1: For characters at an even (L) level — R goes up one, AN and EN go up two.
     I2: For characters at an odd (R) level — L, EN, and AN go up one.
+
+    UAX #9 applies these rules to each isolating run sequence, like W and N.
+    Unlike W and N, though, I1 and I2 look only at each character's own type
+    and level (no neighbours, no sos/eos), and every character belongs to
+    exactly one sequence. So they are applied here to the whole paragraph at
+    once, which gives the same levels.
 
     Precondition: weak and neutral rules must have resolved all character types to
     L, R, EN, AN, or BN before this function is called. BN characters are skipped
@@ -1259,13 +1205,27 @@ def apply_bidi_algorithm(
     # Phase X: Explicit embedding levels
     apply_explicit_levels(chars, paragraph_level, verbose=verbose)
 
+    # X10: Split the paragraph into isolating run sequences, each with its
+    # sos and eos types.  The sequences are computed once, here, and phases
+    # W and N then work on each sequence separately.
+    #
+    # UAX #9 takes each sequence through W1-W7, N0-N2 and I1-I2 before moving
+    # to the next sequence.  Here, every sequence goes through phase W, then
+    # every sequence through phase N, then phase I.  The result is the same,
+    # because the rules for one sequence look only at the characters in that
+    # sequence (and at its sos/eos), never at the other sequences.
+    sequences = get_isolating_run_sequences(chars, paragraph_level)
+    if verbose:
+        print_isolating_run_sequences(sequences, chars)
+
     # Phase W: Weak types
-    apply_weak_rules(chars, paragraph_level, verbose=verbose)
+    apply_weak_rules(chars, sequences, verbose=verbose)
 
     # Phase N: Neutral types
-    apply_neutral_rules(chars, paragraph_level, verbose=verbose)
+    apply_neutral_rules(chars, sequences, verbose=verbose)
 
-    # Phase I: Implicit levels
+    # Phase I: Implicit levels (applied to the whole paragraph at once; see
+    # apply_implicit_rules for why that matches applying them per sequence)
     apply_implicit_rules(chars, verbose=verbose)
 
     # Phase L: Reordering

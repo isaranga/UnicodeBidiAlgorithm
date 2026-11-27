@@ -63,18 +63,19 @@ levels, reordered, para_level, visual_order = apply_bidi_algorithm("Hello שלו
 
 Rule P1 is `split_into_paragraphs`, which works on the raw string and runs before everything else: it splits after each type-B character (CR LF counts as one), keeping the separator at the end of its paragraph. `apply_bidi_algorithm` handles **one paragraph** (a B may only be its last character); callers with longer text call it once per paragraph. The conformance files contain no B except at the end, so P1 is not covered by them.
 
-`apply_bidi_algorithm` orchestrates six phases in order, each corresponding to a section of UAX #9:
+`apply_bidi_algorithm` orchestrates these steps in order, each corresponding to a section of UAX #9:
 
 | Phase | Function | UAX #9 rules |
 |-------|----------|--------------|
 | P | `determine_paragraph_embedding_level` | P2–P3 (P1 is applied beforehand) |
 | X | `apply_explicit_levels` | X1–X9 |
+| X10 | `get_isolating_run_sequences` | X10 (BD13) |
 | W | `apply_weak_rules` | W1–W7 |
 | N | `apply_neutral_rules` | N0–N2 |
 | I | `apply_implicit_rules` | I1–I2 |
 | L | `apply_reorder_rules` | L1–L4 |
 
-Phases W and N operate on **isolating run sequences** (BD13), computed by `get_isolating_run_sequences`. Each IRS chains contiguous level runs that are linked by isolate initiators (LRI/RLI/FSI) to their matching PDI, and carries `sos`/`eos` context types.
+Phases W and N operate on **isolating run sequences** (BD13), computed by `get_isolating_run_sequences`. Each IRS chains contiguous level runs that are linked by isolate initiators (LRI/RLI/FSI) to their matching PDI, and carries `sos`/`eos` context types. Characters removed by X9 (`character_type` BN) stay in `chars` but are left out of every level run and IRS: the characters on either side of them count as adjacent, and `sos`/`eos` skip them when looking at neighbouring levels. This matches the reference implementation's trace (removed characters have level `x` and belong to no run). As a result, the W and N helpers contain no BN handling; only phase I (which runs over the whole paragraph and skips BN) and the L rules (which use `original_type`) still meet removed characters. `apply_bidi_algorithm` computes the list once (rule X10), right after phase X, and passes it to `apply_weak_rules` and `apply_neutral_rules`. The spec takes each IRS through W, N and I in turn, but the code runs each phase across all sequences. This is equivalent because no rule reads outside its own IRS (except through `sos`/`eos`). Phase I is not given the sequences: I1/I2 depend only on each character's own type and level, so `apply_implicit_rules` runs over the whole paragraph. Comments in `apply_bidi_algorithm` and `apply_implicit_rules` explain both points.
 
 The W and N phases each delegate to private per-rule helpers (`_apply_w1`…`_apply_w7`, `_apply_n0`, `_apply_n1`, `_apply_n2`). The L phase similarly delegates to `_apply_l1`…`_apply_l4`.
 
@@ -82,7 +83,7 @@ Bracket pair detection for N0 is handled by `_find_bracket_pairs`, using `OPEN_B
 
 ### Verbose mode
 
-Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the per-rule W, N and L helpers do not, and their phase function prints on their behalf. When enabled, `print_table` (in `verbose_table.py`, together with the helpers below) prints a before/after table for each rule application, with rows for character index, code point, the character itself, the type (or level, or position) before and after the rule, and embedding level. `print_table` decides "(no changes)" by comparing only the Before/After rows, so Phase X prints two tables: "X1-X8 (levels)" (Before is the paragraph level from X1) and "X1-X9 (types)" (overrides, FSI resolution, X9's BN). Without the levels table, an isolate or embedding with no override would show as "(no changes)". Columns are always in logical order, including the L2 and L4 tables, where Before/After give each character's position before and after reordering.
+Every phase function (and `_apply_i1`/`_apply_i2`) accepts `verbose=True`; the per-rule W, N and L helpers do not, and their phase function prints on their behalf. When enabled, `print_table` (in `verbose_table.py`, together with the helpers below) prints a before/after table for each rule application, with rows for character index, code point, the character itself, the type (or level, or position) before and after the rule, and embedding level. `print_table` decides "(no changes)" by comparing only the Before/After rows, so Phase X prints two tables: "X1-X8 (levels)" (Before is the paragraph level from X1) and "X1-X9 (types)" (overrides, FSI resolution, X9's BN). Without the levels table, an isolate or embedding with no override would show as "(no changes)". After phase X, `apply_bidi_algorithm` calls `print_isolating_run_sequences` (also in `verbose_table.py`), which prints the X10 sequences one line each (level, character indices as ranges, `sos`/`eos`), then the indices of the characters removed by X9. Columns are always in logical order, including the L2 and L4 tables, where Before/After give each character's position before and after reordering.
 
 Characters in table cells go through `format_char_for_table`: controls and whitespace are left blank, combining marks are shown on a dotted circle, and each R/AL character is followed by an invisible LEFT-TO-RIGHT MARK so that bidi-aware viewers (Markdown previews, GitHub) don't reverse runs of the row. Cells are sized and centered by `display_width`/`center_in_column`, not `len()`, because those marks take no column on screen. The tracing example in README.md is copied from real output (LRMs included); update it whenever the table format changes.
 
