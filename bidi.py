@@ -498,20 +498,18 @@ def apply_explicit_levels(chars: list[CharacterInfo], paragraph_embedding_level:
 # ============================================================
 
 def _apply_w1(types: list[str], sos: str) -> list[str]:
-    """W1: NSM takes type of preceding character (or sos), BN is transparent.
+    """W1: NSM takes type of preceding character (or sos).
     Exception: if the preceding character is an isolate initiator or PDI, NSM -> ON.
     """
     result = list(types)
     prev_type = sos
     for i in range(len(types)):
-        t = result[i]
-        if t == 'NSM':
+        if result[i] == 'NSM':
             if prev_type in ISOLATE_INITIATOR_TYPES or prev_type == 'PDI':
                 result[i] = 'ON'
             else:
                 result[i] = prev_type
-        if t != 'BN':
-            prev_type = result[i]
+        prev_type = result[i]
     return result
 
 
@@ -527,8 +525,7 @@ def _apply_w2(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'AL':
             result[i] = 'AN'
-        # Non-strong types (including BN, neutrals, and weak types) are transparent:
-        # they do not update last_strong
+        # Non-strong types (neutrals and weak types) do not update last_strong
     return result
 
 
@@ -537,32 +534,14 @@ def _apply_w3(types: list[str]) -> list[str]:
     return ['R' if t == 'AL' else t for t in types]
 
 
-def _get_prev_non_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type before *index* that is not BN, or None."""
-    j = index - 1
-    while j >= 0 and types[j] == 'BN':
-        j -= 1
-    return types[j] if j >= 0 else None
-
-
-def _get_next_non_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type after *index* that is not BN, or None."""
-    k = index + 1
-    while k < len(types) and types[k] == 'BN':
-        k += 1
-    return types[k] if k < len(types) else None
-
-
 def _apply_w4(types: list[str]) -> list[str]:
-    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type.
-    BN characters are transparent (UAX#9 section 5.2) and are skipped when
-    searching for the neighboring type on either side of the separator."""
+    """W4: Single ES between EN-EN -> EN; single CS between EN-EN or AN-AN -> that type."""
     result = list(types)
     for i in range(1, len(result) - 1):
         if result[i] not in ('ES', 'CS'):
             continue
-        prev_type = _get_prev_non_bn(result, i)
-        next_type = _get_next_non_bn(result, i)
+        prev_type = result[i - 1]
+        next_type = result[i + 1]
         if result[i] == 'ES':
             if prev_type == 'EN' and next_type == 'EN':
                 result[i] = 'EN'
@@ -574,37 +553,25 @@ def _apply_w4(types: list[str]) -> list[str]:
     return result
 
 
-def _get_prev_non_et_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type before *index* that is not ET or BN, or None."""
-    j = index - 1
-    while j >= 0 and types[j] in ('ET', 'BN'):
-        j -= 1
-    return types[j] if j >= 0 else None
-
-
-def _get_next_non_et_bn(types: list[str], index: int) -> str | None:
-    """Return the nearest type after *index* that is not ET or BN, or None."""
-    k = index + 1
-    while k < len(types) and types[k] in ('ET', 'BN'):
-        k += 1
-    return types[k] if k < len(types) else None
-
-
 def _apply_w5(types: list[str]) -> list[str]:
-    """W5: ET adjacent to EN -> EN (sequences of ET adjacent to EN become EN).
-    BN characters are transparent (UAX#9 section 5.2), so the scans skip both
-    ET and BN when searching for a bordering EN."""
+    """W5: A sequence of ETs adjacent to an EN (before or after it) -> all EN."""
     result = list(types)
-    # Forward pass: ET following EN
-    for i in range(len(result)):
-        if result[i] == 'ET':
-            if _get_prev_non_et_bn(result, i) == 'EN':
-                result[i] = 'EN'
-    # Backward pass: ET preceding EN
-    for i in range(len(result) - 1, -1, -1):
-        if result[i] == 'ET':
-            if _get_next_non_et_bn(result, i) == 'EN':
-                result[i] = 'EN'
+    n = len(result)
+    i = 0
+    while i < n:
+        if result[i] != 'ET':
+            i += 1
+            continue
+        # result[i:j] is a maximal sequence of ETs
+        j = i
+        while j < n and result[j] == 'ET':
+            j += 1
+        en_before = i > 0 and result[i - 1] == 'EN'
+        en_after = j < n and result[j] == 'EN'
+        if en_before or en_after:
+            for k in range(i, j):
+                result[k] = 'EN'
+        i = j
     return result
 
 
@@ -625,8 +592,7 @@ def _apply_w7(types: list[str], sos: str) -> list[str]:
             last_strong = t
         elif t == 'EN' and last_strong == 'L':
             result[i] = 'L'
-        # Non-strong types (including BN, neutrals, and weak types) are transparent:
-        # they do not update last_strong
+        # Non-strong types (neutrals and weak types) do not update last_strong
     return result
 
 
@@ -755,8 +721,8 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
          direction is found, look at the last strong type before the open
          bracket (falling back to sos) and assign that direction instead.
       2. If no strong type is found inside, leave both brackets as ON.
-      3. Set any NSMs immediately following each bracket (skipping BN/X9
-         characters) to the same direction as the bracket.
+      3. Set any NSMs immediately following each bracket to the same
+         direction as the bracket.
 
     Mutates chars[...].character_type in place. Returns None.
 
@@ -806,25 +772,19 @@ def _apply_n0(chars: list[CharacterInfo], run_indices: list[int],
         chars[open_idx].character_type = direction
         chars[close_idx].character_type = direction
 
-        # Set NSMs after open bracket (skip over BN/X9 characters)
+        # Set NSMs after open bracket
         for pos in range(open_ri + 1, len(run_indices)):
             idx = run_indices[pos]
-            if chars[idx].original_type == 'NSM':
-                chars[idx].character_type = direction
-            elif chars[idx].original_type in X9_REMOVE_TYPES:
-                continue
-            else:
+            if chars[idx].original_type != 'NSM':
                 break
+            chars[idx].character_type = direction
 
-        # Set NSMs after close bracket (skip over BN/X9 characters)
+        # Set NSMs after close bracket
         for pos in range(close_ri + 1, len(run_indices)):
             idx = run_indices[pos]
-            if chars[idx].original_type == 'NSM':
-                chars[idx].character_type = direction
-            elif chars[idx].original_type in X9_REMOVE_TYPES:
-                continue
-            else:
+            if chars[idx].original_type != 'NSM':
                 break
+            chars[idx].character_type = direction
 
 
 def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
@@ -837,10 +797,11 @@ def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
 
     EN and AN are treated as R (strong right) for adjacency purposes.
     sos and eos supply the strong context at the edges of the sequence.
-    BN characters are transparent: they do not break NI runs, are skipped
-    when searching for adjacent strong types, and their type is not changed.
 
     `types` is not modified; a new list with resolved types is returned.
+
+    Precondition: the W rules have run, so every type that is not NI is
+    L, R, EN or AN.
     """
     result = list(types)
     n = len(result)
@@ -854,39 +815,30 @@ def _apply_n1(types: list[str], sos: str, eos: str) -> list[str]:
             return 'L'
         return None
 
-    # BN is treated as if not present (UAX#9 section 5.2): it does not start
-    # or end a neutral run, is skipped when looking for adjacent strong types,
-    # and its type is left unchanged during resolution.
     i = 0
     while i < n:
         if result[i] in NEUTRAL_SET:
-            # Find extent of neutral run; BN is transparent, so extend through it
+            # result[i:j] is a maximal run of NI characters
             j = i
-            while j < n and (result[j] in NEUTRAL_SET or result[j] == 'BN'):
+            while j < n and result[j] in NEUTRAL_SET:
                 j += 1
-            # result[i:j] is the NI run (plus any interspersed BN)
 
-            # Determine strong type before; skip backward over BN
+            # Strong type before the run (sos at the start of the sequence)
             if i == 0:
                 before = sos
             else:
-                k = i - 1
-                while k >= 0 and result[k] == 'BN':
-                    k -= 1
-                before = (strong_equiv(result[k]) if k >= 0 else None) or sos
+                before = strong_equiv(result[i - 1])
 
-            # Determine strong type after (scan already moved past BN)
+            # Strong type after the run (eos at the end of the sequence)
             if j == n:
                 after = eos
             else:
                 after = strong_equiv(result[j])
 
-            # N1: both sides agree -> resolve NI characters to that direction;
-            # leave BN type unchanged
+            # N1: both sides agree -> resolve the NI characters to that direction
             if before == after:
                 for k in range(i, j):
-                    if result[k] != 'BN':
-                        result[k] = before
+                    result[k] = before
 
             i = j
         else:
@@ -901,8 +853,6 @@ def _apply_n2(types: list[str], embedding_level: int) -> list[str]:
 
     Any remaining NI characters (those not resolved by N1) take the
     embedding direction.
-
-    BN characters are transparent and are left unchanged.
 
     `types` is not modified; a new list with resolved types is returned.
     """
